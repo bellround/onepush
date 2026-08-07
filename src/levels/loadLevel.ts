@@ -21,5 +21,5 @@ export function loadLevel(def: LevelDef) {
   const walls = (def.grid.walls ?? []).map(([x, y]) => ({ row: y, col: x }))
   const board = createBoard(def.grid.height, def.grid.width, tiles, controlled.id, walls)
 
-  return { board, name: def.name, targetMolecule: def.targetMolecule }
+  return { board, name: def.name, targetMolecule: def.targetMolecule, explanation: def.explanation }
 }

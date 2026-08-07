@@ -6,8 +6,8 @@ const level: LevelDef = {
   name: '손을 다 채우기',
   targetMolecule: 'H2O',
   grid: {
-    width: 7,
-    height: 3,
+    width: 10,
+    height: 10,
     walls: [
       [1, 1],
       [2, 1],

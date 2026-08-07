@@ -184,3 +184,76 @@
   gap: 12px;
   margin-top: 8px;
 }
+
+.level-list {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.level-item[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.level-item[disabled]:hover {
+  background: transparent;
+}
+
+/* 게임 보드 화면 */
+.board-screen {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+  overflow: auto;
+}
+
+.board-header {
+  position: absolute;
+  top: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.board-viewport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.board-grid {
+  position: relative;
+  background: #f4f3ec;
+  flex-shrink: 0;
+}
+
+.clear-popup {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.clear-popup-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 32px;
+  max-width: 360px;
+  text-align: center;
+}
+.clear-popup-hint {
+  color: var(--text);
+  font-size: 13px;
+}

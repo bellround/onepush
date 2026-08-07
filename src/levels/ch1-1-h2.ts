@@ -5,10 +5,28 @@ const level: LevelDef = {
   id: 'ch1-1',
   name: '첫 만남',
   targetMolecule: 'H2',
-  grid: { width: 3, height: 3 },
+  grid: { 
+    width: 7,
+    height: 6,
+    walls: [
+      [0, 0],
+      [0, 1],
+      [1, 0],
+      [1, 1],
+      [2, 0],
+      [2, 1],
+      [4, 5],
+      [5, 5], 
+      [6, 5],
+      [4, 3],
+      [4, 2],
+    ],
+   },
+  
   atoms: [
-    { id: 'h1', type: 'H', x: 0, y: 1, controlled: true },
-    { id: 'h2', type: 'H', x: 2, y: 1 },
+    { id: 'h1', type: 'H', x: 1, y: 4, controlled: true },
+    { id: 'h2', type: 'O', x: 3, y: 3 },
+    { id: 'h3', type: 'H', x: 5, y: 2 },
   ],
 }
 

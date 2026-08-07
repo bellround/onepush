@@ -17,4 +17,5 @@ export interface LevelDef {
     walls?: [number, number][] // [x, y]
   }
   atoms: LevelAtomDef[]
+  explanation?: string // 클리어 팝업에 표시할 해설 2~3문장 — 콘텐츠는 추후 작성
 }
