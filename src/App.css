@@ -185,6 +185,17 @@
   margin-top: 8px;
 }
 
+.level-chapter {
+  width: 100%;
+  max-width: 380px;
+}
+
+.level-chapter-title {
+  font: 600 44px/1 var(--mono);
+  color: var(--text-h);
+  margin: 0 0 28px;
+}
+
 .level-list {
   width: 100%;
   max-width: 380px;
@@ -216,10 +227,10 @@
 
 .board-header {
   position: absolute;
-  top: 75px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 24px;
+  bottom: 24px;
   margin: 0;
+  font-size: 32px;
   white-space: nowrap;
 }
 

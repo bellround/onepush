@@ -3,8 +3,8 @@ import type { LevelDef } from './types.ts'
 // 기획서 5.2 "첫 만남" — 원자가 1인 원자끼리는 정확히 1:1로만 결합됨을 체험
 const level: LevelDef = {
   id: 'ch1-1',
-  name: '첫 만남',
-  targetMolecule: 'H2',
+  name: '제일 쉬운거',
+  targetMolecule: '물(H2O)',
   grid: { 
     width: 7,
     height: 6,
@@ -25,8 +25,8 @@ const level: LevelDef = {
   
   atoms: [
     { id: 'h1', type: 'H', x: 1, y: 4, controlled: true },
-    { id: 'h2', type: 'O', x: 3, y: 3 },
-    { id: 'h3', type: 'H', x: 5, y: 2 },
+    { id: 'o1', type: 'O', x: 3, y: 3 },
+    { id: 'h2', type: 'H', x: 5, y: 2 },
   ],
 }
 

@@ -12,14 +12,15 @@ export const ACTION_LABELS: Record<GameAction, string> = {
   exit: '종료',
 }
 
+// e.code(물리 키 위치) 기준. e.key와 달리 한글 등 IME 입력 상태의 영향을 받지 않는다.
 export const DEFAULT_KEYBINDINGS: Record<GameAction, string> = {
   up: 'ArrowUp',
   down: 'ArrowDown',
   left: 'ArrowLeft',
   right: 'ArrowRight',
-  select: ' ',
-  undo: 'z',
-  reset: 'r',
+  select: 'Space',
+  undo: 'KeyZ',
+  reset: 'KeyR',
   exit: 'Escape',
 }
 
@@ -39,6 +40,15 @@ export function saveKeybindings(bindings: Record<GameAction, string>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(bindings))
 }
 
-export function keyLabel(key: string): string {
-  return key === ' ' ? 'Space' : key
+// e.code 값을 화면에 보여줄 짧은 이름으로 변환.
+export function keyLabel(code: string): string {
+  if (code.startsWith('Key')) return code.slice(3)
+  if (code.startsWith('Digit')) return code.slice(5)
+  const arrows: Record<string, string> = {
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+  }
+  return arrows[code] ?? code
 }

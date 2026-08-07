@@ -1,19 +1,25 @@
 import type { LevelDef } from './types.ts'
 
-// 벽 하나를 돌아가야 산소에 닿는 레벨. 원자가 개념 + 밀기 방향 전환 연습.
 const level: LevelDef = {
   id: 'ch1-3',
-  name: '돌아가기',
-  targetMolecule: 'H2O',
+  name: '반복',
+  targetMolecule: '과산화수소(H2O2)',
   grid: {
-    width: 6,
-    height: 3,
-    walls: [[1, 1]],
+    width: 7,
+    height: 7,
+    walls: [
+      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0],
+      [0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6],
+      [0, 1], [0, 2], [0, 3], [0, 4], [0, 5],
+      [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
+      [3, 2], [3, 3], [3, 4]
+    ],
   },
   atoms: [
-    { id: 'h1', type: 'H', x: 0, y: 1, controlled: true },
+    { id: 'h1', type: 'H', x: 2, y: 3, controlled: true },
     { id: 'o1', type: 'O', x: 3, y: 1 },
-    { id: 'h2', type: 'H', x: 5, y: 1 },
+    { id: 'h2', type: 'H', x: 4, y: 3 },
+    { id: 'o2', type: 'O', x: 3, y: 5 },
   ],
 }
 

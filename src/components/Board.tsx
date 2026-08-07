@@ -28,22 +28,22 @@ export default function Board({
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      const key = e.key.toLowerCase()
+      const key = e.code
 
-      if (key === bindings.exit.toLowerCase()) {
+      if (key === bindings.exit) {
         e.preventDefault()
         onExit(levelIndex)
         return
       }
 
-      if (cleared && key === bindings.select.toLowerCase()) {
+      if (cleared && key === bindings.select) {
         e.preventDefault()
         const hasNext = levelIndex + 1 < LEVELS.length
         onExit(hasNext ? levelIndex + 1 : levelIndex)
         return
       }
 
-      if (key === bindings.undo.toLowerCase()) {
+      if (key === bindings.undo) {
         e.preventDefault()
         setLevel((level) => {
           if (level.history.length === 0) return level
@@ -53,13 +53,13 @@ export default function Board({
         return
       }
 
-      if (key === bindings.reset.toLowerCase()) {
+      if (key === bindings.reset) {
         e.preventDefault()
         setLevel(levelState(levelIndex))
         return
       }
 
-      const direction = DIRECTIONS.find((d) => bindings[d].toLowerCase() === key)
+      const direction = DIRECTIONS.find((d) => bindings[d] === key)
       if (!direction) return
       e.preventDefault()
       setLevel((level) => {
@@ -73,18 +73,18 @@ export default function Board({
   }, [bindings, cleared, levelIndex, onExit])
 
   const cellSize = Math.floor(BOARD_VIEW / Math.max(board.cols, board.rows))
-  const atomSize = Math.round(cellSize * 0.7)
+  const atomSize = Math.round(cellSize * 0.8)
   const width = board.cols * cellSize
   const height = board.rows * cellSize
   const center = (row: number, col: number) => ({
-    x: col * cellSize + cellSize / 2,
-    y: row * cellSize + cellSize / 2,
+    x: col * cellSize + cellSize / 2 + 5,
+    y: row * cellSize + cellSize / 2 - 5,
   })
 
   return (
     <section className="board-screen">
       <p className="board-header">
-        레벨: <strong>{name}</strong> (방향키로 조작 원소를 밀어보세요)
+        레벨: <strong>{name}</strong>
       </p>
       <div className="board-viewport" style={{ width: BOARD_VIEW, height: BOARD_VIEW }}>
         <div

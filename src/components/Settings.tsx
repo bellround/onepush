@@ -30,7 +30,7 @@ export default function Settings({
     function handleKeyDown(e: KeyboardEvent) {
       e.preventDefault()
       setBindings((prev) => {
-        const next = { ...prev, [action]: e.key }
+        const next = { ...prev, [action]: e.code }
         saveKeybindings(next)
         return next
       })
@@ -44,7 +44,7 @@ export default function Settings({
   useEffect(() => {
     if (listening) return
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key.toLowerCase() === bindings.exit.toLowerCase()) {
+      if (e.code === bindings.exit) {
         e.preventDefault()
         onBack()
       }

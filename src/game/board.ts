@@ -73,36 +73,78 @@ export function detectBonds(board: Board): Board {
   return { ...board, tiles, bonds }
 }
 
+// 조작 그룹(startIds)을 direction으로 밀 때, 실제로 함께 움직여야 하는 타일 id 집합을 계산한다.
+// - 진행 경로에 벽/보드 밖이 있으면 null(전체 이동 불가) 반환.
+// - 진행 경로에 있는 그룹 밖 원자는 그 원자의 groupOf 전체를 밀림 집합에 편입시키고,
+//   더 이상 새로 편입될 타일이 없을 때까지(고정점) 반복 확장한다.
+// - 결합 가능 여부는 여기서 판단하지 않는다(순수 물리적 장애물 취급). 결합 판정은 호출부에서
+//   이동 완료 후 detectBonds()로 처리한다.
+function computePushGroup(
+  board: Board,
+  dr: number,
+  dc: number,
+  startIds: Set<string>,
+): Set<string> | null {
+  const movingIds = new Set(startIds)
+  while (true) {
+    const movingTiles = board.tiles.filter((t) => movingIds.has(t.id))
+
+    for (const tile of movingTiles) {
+      const row = tile.row + dr
+      const col = tile.col + dc
+      if (!inBounds(board, row, col) || isWall(board, row, col)) return null
+    }
+
+    let addedAny = false
+    for (const tile of movingTiles) {
+      const occupant = tileAt(board.tiles, tile.row + dr, tile.col + dc)
+      if (occupant && !movingIds.has(occupant.id)) {
+        for (const id of groupOf(board, occupant.id)) {
+          if (!movingIds.has(id)) {
+            movingIds.add(id)
+            addedAny = true
+          }
+        }
+      }
+    }
+    if (!addedAny) return movingIds
+  }
+}
+
 // 조작 원자가 속한 분자 그룹 전체를 강체처럼 한 칸 민다.
-// - 진행 방향에 벽/보드 밖이 있으면 그룹 전체 이동 불가, 결합 판정도 없음.
-// - 진행 방향에 그룹 밖 원자가 있으면 실제로는 이동하지 않고(칸을 밀고 들어가지 않음),
-//   이미 인접해 있는 상태이므로 결합 조건만 판정한다 — 맞으면 그 자리에서 결합, 안 맞으면 그대로 정지.
+// - 진행 방향의 1차 접촉(그룹 밖 원자)이 결합 가능(양쪽 remaining>=1)하면 이동은 하지 않고
+//   그 자리에서 결합만 일어난다(기존 규칙 유지).
+// - 1차 접촉이 결합 불가능하거나 접촉이 없으면 이동을 시도한다. 이때 진행 경로를 막는
+//   그룹 밖 원자(및 그 원자의 분자 그룹)는 소코반처럼 함께 밀려나며, 연쇄적으로 더 막는
+//   원자가 있으면 그 그룹까지 재귀적으로 포함해 판정한다(computePushGroup).
+//   연쇄 경로 중 벽/보드 밖에 막히면 아무도 움직이지 않는다.
+// - 이동이 끝나면 detectBonds()로 새로 인접한 원자들의 결합을 재판정한다.
 export function pushTile(board: Board, direction: Direction): Board {
   const { dr, dc } = STEP[direction]
   const group = groupOf(board, board.controlledId)
   const groupTiles = board.tiles.filter((t) => group.has(t.id))
 
-  for (const tile of groupTiles) {
-    const row = tile.row + dr
-    const col = tile.col + dc
-    if (!inBounds(board, row, col) || isWall(board, row, col)) {
-      return board
-    }
-  }
-
-  const hasForeignBlock = groupTiles.some((tile) => {
+  const hasBondableContact = groupTiles.some((tile) => {
     const occupant = tileAt(board.tiles, tile.row + dr, tile.col + dc)
-    return occupant !== undefined && !group.has(occupant.id)
+    return (
+      occupant !== undefined &&
+      !group.has(occupant.id) &&
+      occupant.remaining >= 1 &&
+      tile.remaining >= 1
+    )
   })
-
-  if (hasForeignBlock) {
+  if (hasBondableContact) {
     return detectBonds(board)
   }
 
-  const tiles = board.tiles.map((t) =>
-    group.has(t.id) ? { ...t, row: t.row + dr, col: t.col + dc } : t,
-  )
+  const pushSet = computePushGroup(board, dr, dc, group)
+  if (pushSet === null) {
+    return board
+  }
 
+  const tiles = board.tiles.map((t) =>
+    pushSet.has(t.id) ? { ...t, row: t.row + dr, col: t.col + dc } : t,
+  )
   return detectBonds({ ...board, tiles })
 }
 
