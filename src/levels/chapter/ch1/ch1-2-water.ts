@@ -1,4 +1,4 @@
-import type { LevelDef } from './types.ts'
+import type { LevelDef } from '../../types.ts'
 
 // 기획서 9번 표 JSON 예시("물방울") 그대로
 const level: LevelDef = {

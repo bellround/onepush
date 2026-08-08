@@ -1,4 +1,4 @@
-import type { LevelDef } from './types.ts'
+import type { LevelDef } from '../../types.ts'
 
 // 챕터1 마무리 — 더 긴 벽을 돌아가서 산소의 두 손을 모두 채운다.
 const level: LevelDef = {

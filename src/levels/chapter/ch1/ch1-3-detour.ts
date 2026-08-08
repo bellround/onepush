@@ -1,4 +1,4 @@
-import type { LevelDef } from './types.ts'
+import type { LevelDef } from '../../types.ts'
 
 const level: LevelDef = {
   id: 'ch1-3',

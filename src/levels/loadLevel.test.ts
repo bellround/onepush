@@ -5,11 +5,11 @@ import { pushTile, isCleared } from '../game/board.ts'
 import { loadLevel } from './loadLevel.ts'
 import type { Board, Direction } from '../game/types.ts'
 import type { LevelDef } from './types.ts'
-import ch1_1 from './ch1-1-h2.ts'
-import ch1_2 from './ch1-2-water.ts'
-import ch1_3 from './ch1-3-detour.ts'
-import ch1_4 from './ch1-4-full-hands.ts'
-import ch1_5 from './ch1-5-new-varity.ts'
+import ch1_1 from './chapter/ch1/ch1-1-h2.ts'
+import ch1_2 from './chapter/ch1/ch1-2-water.ts'
+import ch1_3 from './chapter/ch1/ch1-3-detour.ts'
+import ch1_4 from './chapter/ch1/ch1-4-full-hands.ts'
+import ch1_5 from './chapter/ch1/ch1-5-new-varity.ts'
 
 // index.ts는 import.meta.glob(Vite 전용 API)로 레벨을 모으기 때문에 node --test로 직접 실행할 수 없다.
 // 그래서 여기서는 각 레벨 파일을 직접 import한다.
