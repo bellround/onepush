@@ -3,7 +3,7 @@ import type { LevelDef } from './types.ts'
 // 챕터1 마무리 — 더 긴 벽을 돌아가서 산소의 두 손을 모두 채운다.
 const level: LevelDef = {
   id: 'ch1-5',
-  name: '손을 다 채우기',
+  name: '마지막 우회로',
   targetMolecule: '메탄올(CH3OH)',
   grid: {
     width: 9,

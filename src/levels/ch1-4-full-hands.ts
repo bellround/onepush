@@ -2,7 +2,7 @@ import type { LevelDef } from './types.ts'
 
 const level: LevelDef = {
   id: 'ch1-4',
-  name: '손을 다 채우기',
+  name: '손이 세 개',
   targetMolecule: 'NH2OH',
   grid: {
     width: 8,
