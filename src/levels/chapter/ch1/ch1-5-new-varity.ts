@@ -5,6 +5,9 @@ const level: LevelDef = {
   id: 'ch1-5',
   name: '마지막 우회로',
   targetMolecule: '메탄올(CH3OH)',
+  explanation: '',
+  moleculeName: '메탄올(CH3OH)',
+  moleculeExplanation: '',
   grid: {
     width: 9,
     height: 7,

@@ -5,6 +5,9 @@ const level: LevelDef = {
   id: 'ch1-2',
   name: '좁은방',
   targetMolecule: '물(H2O)',
+  explanation: '',
+  moleculeName: '물(H2O)',
+  moleculeExplanation: '',
   grid: {
     width: 5,
     height: 4,

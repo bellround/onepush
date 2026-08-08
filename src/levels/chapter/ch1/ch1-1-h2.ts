@@ -5,6 +5,9 @@ const level: LevelDef = {
   id: 'ch1-1',
   name: '제일 쉬운거',
   targetMolecule: '물(H2O)',
+  explanation: '',
+  moleculeName: 'H2O',
+  moleculeExplanation: 'ㅇ',
   grid: { 
     width: 7,
     height: 6,

@@ -2,10 +2,11 @@ import { useState } from 'react'
 import Board from './components/Board.tsx'
 import LevelSelect from './components/LevelSelect.tsx'
 import Settings from './components/Settings.tsx'
+import MoleculeDex from './components/MoleculeDex.tsx'
 import { loadProgress, saveProgress } from './game/progress.ts'
 import './App.css'
 
-type Screen = 'start' | 'settings' | 'playing' | 'levels'
+type Screen = 'start' | 'settings' | 'playing' | 'levels' | 'dex'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('start')
@@ -19,6 +20,10 @@ function App() {
         onResetProgress={() => setProgress(0)}
       />
     )
+  }
+
+  if (screen === 'dex') {
+    return <MoleculeDex progress={progress} onBack={() => setScreen('start')} />
   }
 
   if (screen === 'levels') {
@@ -73,6 +78,9 @@ function App() {
           onClick={() => setScreen('levels')}
         >
           게임 시작
+        </button>
+        <button type="button" className="btn" onClick={() => setScreen('dex')}>
+          분자 도감
         </button>
         <button type="button" className="btn" onClick={() => setScreen('settings')}>
           설정

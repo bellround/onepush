@@ -4,6 +4,9 @@ const level: LevelDef = {
   id: 'ch1-4',
   name: '손이 세 개',
   targetMolecule: 'NH2OH',
+  explanation: '',
+  moleculeName: 'NH2OH',
+  moleculeExplanation: '',
   grid: {
     width: 8,
     height: 7,

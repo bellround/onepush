@@ -1,32 +1,23 @@
 import type { LevelDef } from '../../types.ts'
 
-// 임시 레벨 — ch1-1과 동일 구조. 챕터4 실제 레벨로 교체 예정.
+// 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
 const level: LevelDef = {
   id: 'ch4-1',
-  name: '(임시) 챕터4',
-  targetMolecule: '물(H2O)',
+  name: '',
+  targetMolecule: '',
+  explanation: '',
+  moleculeName: '',
+  moleculeExplanation: '',
   grid: {
-    width: 7,
-    height: 6,
+    width: 0,
+    height: 0,
     walls: [
-      [0, 0],
-      [0, 1],
-      [1, 0],
-      [1, 1],
-      [2, 0],
-      [2, 1],
-      [4, 5],
-      [5, 5],
-      [6, 5],
-      [4, 3],
-      [4, 2],
+      // [x, y],
     ],
   },
 
   atoms: [
-    { id: 'h1', type: 'H', x: 1, y: 4, controlled: true },
-    { id: 'o1', type: 'O', x: 3, y: 3 },
-    { id: 'h2', type: 'H', x: 5, y: 2 },
+    // { id: 'x1', type: 'H', x: 0, y: 0, controlled: true },
   ],
 }
 

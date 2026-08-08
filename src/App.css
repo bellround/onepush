@@ -212,6 +212,42 @@
   background: transparent;
 }
 
+.dex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.dex-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.dex-symbol {
+  font-size: 32px;
+}
+
+.dex-valence {
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.8;
+}
+
+.dex-note {
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.7;
+  margin: 4px 0 0;
+}
+
 /* 게임 보드 화면 */
 .board-screen {
   position: relative;

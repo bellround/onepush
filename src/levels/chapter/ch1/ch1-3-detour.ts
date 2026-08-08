@@ -4,6 +4,9 @@ const level: LevelDef = {
   id: 'ch1-3',
   name: '반복',
   targetMolecule: '과산화수소(H2O2)',
+  explanation: '',
+  moleculeName: '과산화수소(H2O2)',
+  moleculeExplanation: '',
   grid: {
     width: 7,
     height: 7,
