@@ -234,6 +234,21 @@
   white-space: nowrap;
 }
 
+.board-controls-hint {
+  position: absolute;
+  left: 24px;
+  top: 24px;
+  font-size: 14px;
+  color: var(--text);
+  opacity: 0.7;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.board-controls-hint p {
+  margin: 0;
+}
+
 .board-viewport {
   display: flex;
   align-items: center;

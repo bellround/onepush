@@ -86,6 +86,10 @@ export default function Board({
       <p className="board-header">
         레벨: <strong>{name}</strong>
       </p>
+      <div className="board-controls-hint">
+        <p>되돌리기 : {keyLabel(bindings.undo)}</p>
+        <p>리셋 : {keyLabel(bindings.reset)}</p>
+      </div>
       <div className="board-viewport" style={{ width: BOARD_VIEW, height: BOARD_VIEW }}>
         <div
           className="board-grid"
@@ -124,7 +128,7 @@ export default function Board({
                   y1={p1.y}
                   x2={p2.x}
                   y2={p2.y}
-                  stroke="#aa3bff"
+                  stroke="#000"
                   strokeWidth={4}
                 />
               )
@@ -145,8 +149,8 @@ export default function Board({
                 justifyContent: 'center',
                 borderRadius: '50%',
                 boxSizing: 'border-box',
-                border: tile.id === board.controlledId ? '3px solid #aa3bff' : '2px solid #6b6375',
-                background: '#fff',
+                border: tile.id === board.controlledId ? '2px solid #000' : '2px solid #6b6375',
+                background: tile.id === board.controlledId ? '#E8C9BE' : '#fff',
                 transition: 'top 120ms, left 120ms',
               }}
             >

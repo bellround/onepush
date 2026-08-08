@@ -16,10 +16,10 @@ const level: LevelDef = {
     ],
   },
   atoms: [
-    { id: 'n1', type: 'O', x: 2, y: 3, controlled: true },
+    { id: 'o1', type: 'O', x: 2, y: 3, controlled: true },
     { id: 'h1', type: 'H', x: 5, y: 4 },
     { id: 'h2', type: 'H', x: 3, y: 4 },
-    { id: 'o1', type: 'C', x: 6, y: 3 },
+    { id: 'c1', type: 'C', x: 6, y: 3 },
     { id: 'h3', type: 'H', x: 5, y: 2 },
     { id: 'h4', type: 'H', x: 3, y: 2 },
   ],
