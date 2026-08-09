@@ -190,6 +190,20 @@
   max-width: 380px;
 }
 
+.chapter-nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.chapter-nav .btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.chapter-nav .btn[disabled]:hover {
+  background: transparent;
+}
+
 .level-chapter-title {
   font: 600 44px/1 var(--mono);
   color: var(--text-h);

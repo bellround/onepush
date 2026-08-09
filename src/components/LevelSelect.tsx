@@ -25,17 +25,6 @@ export default function LevelSelect({
 }) {
   const [bindings] = useState(loadKeybindings)
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.code === bindings.exit) {
-        e.preventDefault()
-        onBack()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [bindings.exit, onBack])
-
   const chapters: { id: string; levels: { level: (typeof LEVELS)[number]; index: number }[] }[] = []
   LEVELS.forEach((level, index) => {
     const id = chapterOf(level.id)
@@ -47,37 +36,77 @@ export default function LevelSelect({
     }
   })
 
+  const [chapterIndex, setChapterIndex] = useState(() => {
+    const found = chapters.findIndex((c) => c.levels.some(({ index }) => index === progress))
+    return found === -1 ? 0 : found
+  })
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.code === bindings.exit) {
+        e.preventDefault()
+        onBack()
+        return
+      }
+      if (e.code === bindings.right) {
+        e.preventDefault()
+        setChapterIndex((i) => Math.min(i + 1, chapters.length - 1))
+        return
+      }
+      if (e.code === bindings.left) {
+        e.preventDefault()
+        setChapterIndex((i) => Math.max(i - 1, 0))
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [bindings, chapters.length, onBack])
+
+  const chapter = chapters[chapterIndex]
+
   return (
     <section className="settings">
       <h1>레벨 선택</h1>
-      {chapters.map((chapter) => {
-        const chapterLocked = chapter.levels[0].index > progress
-        return (
-          <div className="level-chapter" key={chapter.id}>
-            <h2 className="level-chapter-title">
-              {chapterLabel(chapter.id)}
-              {chapterLocked ? ' (잠김)' : ''}
-            </h2>
-            <div className="level-list">
-              {chapter.levels.map(({ level, index }) => {
-                const locked = index > progress
-                return (
-                  <button
-                    key={level.id}
-                    type="button"
-                    className="btn level-item"
-                    disabled={locked}
-                    onClick={() => onSelect(index)}
-                  >
-                    {index + 1}. {level.name}
-                    {locked ? ' (잠김)' : ''}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
+      <div className="level-chapter">
+        <h2 className="level-chapter-title">
+          {chapterLabel(chapter.id)}
+        </h2>
+        <div className="level-list">
+          {chapter.levels.map(({ level, index }) => {
+            const locked = index > progress
+            return (
+              <button
+                key={level.id}
+                type="button"
+                className="btn level-item"
+                disabled={locked}
+                onClick={() => onSelect(index)}
+              >
+                {index + 1}. {level.name}
+                {locked ? ' (잠김)' : ''}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div className="chapter-nav">
+        <button
+          type="button"
+          className="btn"
+          disabled={chapterIndex === 0}
+          onClick={() => setChapterIndex((i) => i - 1)}
+        >
+          ◀
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={chapterIndex === chapters.length - 1}
+          onClick={() => setChapterIndex((i) => i + 1)}
+        >
+          ▶
+        </button>
+      </div>
       <button type="button" className="btn" onClick={onBack}>
         뒤로
       </button>
