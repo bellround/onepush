@@ -67,47 +67,47 @@ export default function LevelSelect({
   return (
     <section className="settings">
       <h1>레벨 선택</h1>
-      <div className="level-chapter">
-        <h2 className="level-chapter-title">
-          {chapterLabel(chapter.id)}
-        </h2>
-        <div className="level-list">
-          {chapter.levels.map(({ level, index }) => {
-            const locked = index > progress
-            return (
-              <button
-                key={level.id}
-                type="button"
-                className="btn level-item"
-                disabled={locked}
-                onClick={() => onSelect(index)}
-              >
-                {index + 1}. {level.name}
-                {locked ? ' (잠김)' : ''}
-              </button>
-            )
-          })}
-        </div>
-      </div>
       <div className="chapter-nav">
         <button
           type="button"
-          className="btn"
+          className="btn chapter-arrow chapter-arrow--prev"
           disabled={chapterIndex === 0}
           onClick={() => setChapterIndex((i) => i - 1)}
         >
           ◀
         </button>
+        <div className="level-chapter">
+          <h2 className="level-chapter-title">
+            {chapterLabel(chapter.id)}
+          </h2>
+          <div className="level-list">
+            {chapter.levels.map(({ level, index }) => {
+              const locked = index > progress
+              return (
+                <button
+                  key={level.id}
+                  type="button"
+                  className="btn level-item"
+                  disabled={locked}
+                  onClick={() => onSelect(index)}
+                >
+                  {index + 1}. {level.name}
+                  {locked ? ' (잠김)' : ''}
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <button
           type="button"
-          className="btn"
+          className="btn chapter-arrow chapter-arrow--next"
           disabled={chapterIndex === chapters.length - 1}
           onClick={() => setChapterIndex((i) => i + 1)}
         >
           ▶
         </button>
       </div>
-      <button type="button" className="btn" onClick={onBack}>
+      <button type="button" className="btn back-btn-fixed" onClick={onBack}>
         뒤로
       </button>
     </section>

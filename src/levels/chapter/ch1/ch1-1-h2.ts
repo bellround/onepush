@@ -7,7 +7,7 @@ const level: LevelDef = {
   targetMolecule: '물(H2O)',
   explanation: '',
   moleculeName: 'H2O',
-  moleculeExplanation: 'ㅇ',
+  moleculeExplanation: 'ㅇㅁ러모ㅓ오ㅓㄹ머아뉼마ㅓㅇ뉼ㅇ머ㅜ ㅁ윤륨ㄹㅁ유ㅣㅇ로ㅓㅁ',
   grid: { 
     width: 7,
     height: 6,
