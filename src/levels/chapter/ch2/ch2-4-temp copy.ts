@@ -1,0 +1,63 @@
+import type { LevelDef } from '../../types.ts'
+
+// 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
+const level: LevelDef = {
+  id: 'ch2-4',
+  name: '',
+  targetMolecule: '',
+  explanation: '',
+  moleculeName: '',
+  moleculeExplanation: '',
+  grid: {
+    width: 9,
+    height: 9,
+    walls: [
+      [0, 0],
+      [0, 8],
+      [1, 0],
+      [1, 8],
+      [2, 0],
+      [2, 8],
+      [3, 0],
+      [3, 8],
+      [4, 0],
+      [4, 8],
+      [5, 0],
+      [5, 8],
+      [6, 0],
+      [6, 8],
+      [7, 0],
+      [7, 8],
+      [8, 0],
+      [8, 8],
+      [0, 1],
+      [8, 1],
+      [0, 2],
+      [8, 2],
+      [0, 3],
+      [8, 3],
+      [0, 4],
+      [8, 4],
+      [0, 5],
+      [8, 5],
+      [0, 6],
+      [8, 6],
+      [0, 7],
+      [8, 7],
+      [4, 4],
+    ],
+  },
+
+  atoms: [
+    { id: 'c1', type: 'C', x: 4, y: 6, controlled: true },
+    { id: 'c2', type: 'C', x: 4, y: 2 },
+    { id: 'h1', type: 'H', x: 2, y: 2 },
+    { id: 'h2', type: 'H', x: 2, y: 4 },
+    { id: 'h3', type: 'H', x: 2, y: 6 },
+    { id: 'h4', type: 'H', x: 6, y: 2 },
+    { id: 'h5', type: 'H', x: 6, y: 4 },
+    { id: 'h6', type: 'H', x: 6, y: 6 },
+  ],
+}
+
+export default level
