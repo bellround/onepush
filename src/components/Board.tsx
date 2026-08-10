@@ -149,7 +149,7 @@ export default function Board({
                 justifyContent: 'center',
                 borderRadius: '50%',
                 boxSizing: 'border-box',
-                border: tile.id === board.controlledId ? '2px solid #000' : '2px solid #6b6375',
+                border: tile.id === board.controlledId ? '3px solid #000' : '3px solid #6b6375',
                 background: tile.id === board.controlledId ? '#E8C9BE' : '#fff',
                 transition: 'top 120ms, left 120ms',
               }}

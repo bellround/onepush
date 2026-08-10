@@ -45,11 +45,14 @@ function groupOf(board: Board, startId: string): Set<string> {
 
 // 결합 조건: 두 원자가 인접하고, 각 원자의 남은 원자가가 1 이상일 때 결합선 생성.
 // 이미 결합된 쌍은 다시 판정하지 않는다(끊어지지도 않는다).
+// 한 원자가 남은 원자가보다 많은 상대와 동시에 인접하면(예: H 하나가 좌우 모두와 인접),
+// 원자가가 더 큰 쪽(H보다 O처럼)을 먼저 결합시키고, 원자가가 같으면 더 오른쪽(열 값이 큰) 쪽을 먼저 결합시킨다.
 export function detectBonds(board: Board): Board {
   const tiles = board.tiles.map((t) => ({ ...t }))
   const bonds: Bond[] = board.bonds.map((b) => ({ ...b }))
   const bonded = new Set(bonds.map((b) => bondKey(b.a, b.b)))
 
+  const candidates: [ElementTile, ElementTile][] = []
   for (let i = 0; i < tiles.length; i++) {
     for (let j = i + 1; j < tiles.length; j++) {
       const a = tiles[i]
@@ -58,16 +61,26 @@ export function detectBonds(board: Board): Board {
         (a.row === b.row && Math.abs(a.col - b.col) === 1) ||
         (a.col === b.col && Math.abs(a.row - b.row) === 1)
       if (!adjacent) continue
-
-      const key = bondKey(a.id, b.id)
-      if (bonded.has(key)) continue
-      if (a.remaining < 1 || b.remaining < 1) continue
-
-      bonded.add(key)
-      bonds.push({ a: a.id, b: b.id })
-      a.remaining -= 1
-      b.remaining -= 1
+      if (bonded.has(bondKey(a.id, b.id))) continue
+      candidates.push([a, b])
     }
+  }
+
+  candidates.sort((p1, p2) => {
+    const maxValence1 = Math.max(p1[0].valence, p1[1].valence)
+    const maxValence2 = Math.max(p2[0].valence, p2[1].valence)
+    if (maxValence1 !== maxValence2) return maxValence2 - maxValence1
+    const maxCol1 = Math.max(p1[0].col, p1[1].col)
+    const maxCol2 = Math.max(p2[0].col, p2[1].col)
+    return maxCol2 - maxCol1
+  })
+
+  for (const [a, b] of candidates) {
+    if (a.remaining < 1 || b.remaining < 1) continue
+    bonded.add(bondKey(a.id, b.id))
+    bonds.push({ a: a.id, b: b.id })
+    a.remaining -= 1
+    b.remaining -= 1
   }
 
   return { ...board, tiles, bonds }

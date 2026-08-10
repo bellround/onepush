@@ -37,7 +37,10 @@ export default function LevelSelect({
   })
 
   const [chapterIndex, setChapterIndex] = useState(() => {
-    const found = chapters.findIndex((c) => c.levels.some(({ index }) => index === progress))
+    // 챕터 첫 레벨(progress)이 아니라 방금 깬 레벨 기준으로 열어야
+    // 챕터를 깨자마자 다음 챕터로 화면이 튀지 않는다.
+    const anchor = Math.max(progress - 1, 0)
+    const found = chapters.findIndex((c) => c.levels.some(({ index }) => index === anchor))
     return found === -1 ? 0 : found
   })
 
