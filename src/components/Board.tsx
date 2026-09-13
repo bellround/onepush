@@ -57,7 +57,7 @@ export default function Board({
       if (key === bindings.undo) {
         e.preventDefault()
         if (history.length === 0) return
-        recordAction(run, 'undo', null)
+        recordAction(run, 'undo', null, null)
         setLevel((level) => ({
           ...level,
           board: level.history[level.history.length - 1],
@@ -68,7 +68,7 @@ export default function Board({
 
       if (key === bindings.reset) {
         e.preventDefault()
-        recordAction(run, 'reset', null)
+        recordAction(run, 'reset', null, null)
         setLevel(levelState(levelIndex))
         return
       }
@@ -78,7 +78,7 @@ export default function Board({
       e.preventDefault()
       const newBoard = pushTile(board, direction)
       if (newBoard === board) return
-      recordAction(run, 'move', direction)
+      recordAction(run, 'move', direction, newBoard)
       setLevel((level) => ({ ...level, board: newBoard, history: [...level.history, board] }))
     }
     window.addEventListener('keydown', handleKeyDown)

@@ -1,10 +1,11 @@
-import type { Direction } from './types.ts'
+import type { Board, Direction } from './types.ts'
 
 // 한 라운드(= 레벨 1회 플레이) 동안 일어난 조작 하나.
 export interface RoundAction {
   kind: 'move' | 'undo' | 'reset'
   direction: Direction | null // move일 때만 방향이 있다
   t: number // 라운드 시작 후 경과 ms
+  board: Board | null // move 직후 보드 전체 스냅샷 (undo/reset은 null)
 }
 
 // 플레이 중 쌓아가는 진행 상태 (mutable).
@@ -39,9 +40,10 @@ export function recordAction(
   run: RoundRun,
   kind: RoundAction['kind'],
   direction: Direction | null,
+  board: Board | null,
   now = Date.now(),
 ): void {
-  run.actions.push({ kind, direction, t: now - run.startedAt })
+  run.actions.push({ kind, direction, t: now - run.startedAt, board })
 }
 
 // 클리어 판정은 렌더마다 다시 계산되므로 첫 호출만 남긴다.

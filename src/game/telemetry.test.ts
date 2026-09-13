@@ -5,11 +5,11 @@ import { finishRound, recordAction, recordClear, startRound } from './telemetry.
 
 test('클리어한 라운드 — 첫 수 시각, 최대 간격, 횟수 집계', () => {
   const run = startRound('ch1-4', 3, 1000)
-  recordAction(run, 'move', 'up', 1500) // 첫 수: 500ms
-  recordAction(run, 'move', 'left', 1700) // 간격 200ms
-  recordAction(run, 'undo', null, 1800)
-  recordAction(run, 'reset', null, 1900)
-  recordAction(run, 'move', 'right', 3000) // 간격 1300ms ← 최대
+  recordAction(run, 'move', 'up', null, 1500) // 첫 수: 500ms
+  recordAction(run, 'move', 'left', null, 1700) // 간격 200ms
+  recordAction(run, 'undo', null, null, 1800)
+  recordAction(run, 'reset', null, null, 1900)
+  recordAction(run, 'move', 'right', null, 3000) // 간격 1300ms ← 최대
   recordClear(run, 3100)
 
   const record = finishRound(run, true, 4000)

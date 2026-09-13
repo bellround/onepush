@@ -27,6 +27,9 @@ const SCHEMA = `
 export function openDb(path = process.env.DB_PATH ?? 'data/rounds.db'): DatabaseSync {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
   const db = new DatabaseSync(path)
+  // WAL: 쓰는 동안(server insert)도 sqlite3 CLI로 조회/삭제 가능. busy_timeout: 잠깐 겹치면 에러 대신 대기.
+  db.exec('PRAGMA journal_mode = WAL')
+  db.exec('PRAGMA busy_timeout = 5000')
   db.exec(SCHEMA)
   return db
 }
