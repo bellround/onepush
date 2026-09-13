@@ -228,11 +228,13 @@ export function pushTile(board: Board, direction: Direction): Board {
   return applyBonders(board, detectBonds({ ...board, tiles }))
 }
 
-// 클리어 조건: 판 위 모든 원자가 하나의 그룹으로 결합되고, 모든 원자가 자리가 채워졌을 때.
+// 클리어 조건: 결합 가능한(원자가 > 0) 원자가 모두 하나의 그룹으로 결합되고 자리가 채워졌을 때.
+// He 같은 비활성 기체(원자가 0)는 애초에 결합할 수 없으므로 그룹 판정에서 제외한다.
 export function isCleared(board: Board): boolean {
-  if (board.tiles.length === 0) return false
-  if (!board.tiles.every((t) => t.remaining === 0)) return false
-  return groupOf(board, board.tiles[0].id).size === board.tiles.length
+  const bondable = board.tiles.filter((t) => t.valence > 0)
+  if (bondable.length === 0) return false
+  if (!bondable.every((t) => t.remaining === 0)) return false
+  return groupOf(board, bondable[0].id).size === bondable.length
 }
 
 export function createBoard(

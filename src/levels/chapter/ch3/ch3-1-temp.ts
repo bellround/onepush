@@ -43,7 +43,10 @@ const level: LevelDef = {
   },
 
   atoms: [
-    // { id: 'x1', type: 'H', x: 0, y: 0, controlled: true },
+    { id: 'He1', type: 'He', x: 1, y: 1, controlled: true },
+    { id: 'o1', type: 'O', x: 3, y: 3 },
+    { id: 'h2', type: 'H', x: 5, y: 2 },
+    { id: 'h1', type: 'H', x: 6, y: 4 },
   ],
 }
 

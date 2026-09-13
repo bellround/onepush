@@ -6,6 +6,7 @@ export const ELEMENT_VALENCE: Record<string, number> = {
   C: 4,
   Cl: 1,
   Na: 1,
+  He: 0,
 }
 
 let nextId = 0
