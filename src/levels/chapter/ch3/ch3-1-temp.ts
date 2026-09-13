@@ -1,6 +1,5 @@
 import type { LevelDef } from '../../types.ts'
 
-// 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
 const level: LevelDef = {
   id: 'ch3-1',
   name: '',
@@ -9,10 +8,37 @@ const level: LevelDef = {
   moleculeName: '',
   moleculeExplanation: '',
   grid: {
-    width: 0,
-    height: 0,
+    width: 9,
+    height: 7,
     walls: [
-      // [x, y],
+      [0, 0],
+      [0, 6],
+      [1, 0],
+      [1, 6],
+      [2, 0],
+      [2, 6],
+      [3, 0],
+      [3, 6],
+      [4, 0],
+      [4, 6],
+      [5, 0],
+      [5, 6],
+      [6, 0],
+      [6, 6],
+      [7, 0],
+      [7, 6],
+      [8, 0],
+      [8, 6],
+      [0, 1],
+      [8, 1],
+      [0, 2],
+      [8, 2],
+      [0, 3],
+      [8, 3],
+      [0, 4],
+      [8, 4],
+      [0, 5],
+      [8, 5],
     ],
   },
 

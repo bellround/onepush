@@ -5,9 +5,9 @@ const level: LevelDef = {
   id: 'ch1-1',
   name: '제일 쉬운거',
   targetMolecule: '물(H2O)',
-  explanation: '',
+  explanation: '인간의 몸에서 물은 약 70%를 차지한다',
   moleculeName: 'H2O',
-  moleculeExplanation: 'ㅇㅁ러모ㅓ오ㅓㄹ머아뉼마ㅓㅇ뉼ㅇ머ㅜ ㅁ윤륨ㄹㅁ유ㅣㅇ로ㅓㅁ',
+  moleculeExplanation: '수소 2개와 산소 1개가 붙어서 생긴 분자',
   grid: { 
     width: 7,
     height: 6,

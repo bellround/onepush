@@ -12,12 +12,17 @@ function App() {
   const [screen, setScreen] = useState<Screen>('start')
   const [progress, setProgress] = useState(loadProgress)
   const [playingIndex, setPlayingIndex] = useState(0)
+  // 이번 세션에 방금 깬 레벨 — 레벨 선택 화면을 그 챕터에서 열기 위한 기준.
+  const [lastCleared, setLastCleared] = useState<number | null>(null)
 
   if (screen === 'settings') {
     return (
       <Settings
         onBack={() => setScreen('start')}
-        onResetProgress={() => setProgress(0)}
+        onResetProgress={() => {
+          setProgress(0)
+          setLastCleared(null)
+        }}
       />
     )
   }
@@ -30,6 +35,7 @@ function App() {
     return (
       <LevelSelect
         progress={progress}
+        focusLevel={lastCleared ?? Math.max(progress - 1, 0)}
         onSelect={(i) => {
           setPlayingIndex(i)
           setScreen('playing')
@@ -43,11 +49,16 @@ function App() {
     return (
       <Board
         startLevelIndex={playingIndex}
-        onExit={(nextLevelIndex) => {
-          const furthest = Math.max(progress, nextLevelIndex)
+        onExit={(levelIndex, cleared) => {
+          if (!cleared) {
+            setScreen('start')
+            return
+          }
+          const furthest = Math.max(progress, levelIndex + 1)
           setProgress(furthest)
           saveProgress(furthest)
-          setScreen('start')
+          setLastCleared(levelIndex)
+          setScreen('levels')
         }}
       />
     )

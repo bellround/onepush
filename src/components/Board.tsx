@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { isCleared, pushTile } from '../game/board.ts'
 import { keyLabel, loadKeybindings } from '../game/keybindings.ts'
+import { finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
 import { LEVELS, loadLevel } from '../levels/index.ts'
 import type { Board as BoardState, Direction } from '../game/types.ts'
 
@@ -18,13 +19,20 @@ export default function Board({
   onExit,
 }: {
   startLevelIndex: number
-  onExit: (nextLevelIndex: number) => void
+  onExit: (levelIndex: number, cleared: boolean) => void
 }) {
-  const [{ levelIndex, board, name, targetMolecule, explanation }, setLevel] = useState(() =>
+  const [{ levelIndex, board, history, name, targetMolecule, explanation }, setLevel] = useState(() =>
     levelState(startLevelIndex),
   )
   const [bindings] = useState(loadKeybindings)
   const cleared = isCleared(board)
+
+  // 리셋해도 같은 라운드다 — 이 컴포넌트가 살아있는 동안 하나의 기록만 쌓인다.
+  const [run] = useState(() => startRound(LEVELS[startLevelIndex].id, startLevelIndex))
+
+  useEffect(() => {
+    if (cleared) recordClear(run)
+  }, [cleared, run])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -32,29 +40,33 @@ export default function Board({
 
       if (key === bindings.exit) {
         e.preventDefault()
-        onExit(levelIndex)
+        sendRound(finishRound(run, false))
+        onExit(levelIndex, false)
         return
       }
 
       if (cleared && key === bindings.select) {
         e.preventDefault()
-        const hasNext = levelIndex + 1 < LEVELS.length
-        onExit(hasNext ? levelIndex + 1 : levelIndex)
+        sendRound(finishRound(run, true))
+        onExit(levelIndex, true)
         return
       }
 
       if (key === bindings.undo) {
         e.preventDefault()
-        setLevel((level) => {
-          if (level.history.length === 0) return level
-          const prevBoard = level.history[level.history.length - 1]
-          return { ...level, board: prevBoard, history: level.history.slice(0, -1) }
-        })
+        if (history.length === 0) return
+        recordAction(run, 'undo', null)
+        setLevel((level) => ({
+          ...level,
+          board: level.history[level.history.length - 1],
+          history: level.history.slice(0, -1),
+        }))
         return
       }
 
       if (key === bindings.reset) {
         e.preventDefault()
+        recordAction(run, 'reset', null)
         setLevel(levelState(levelIndex))
         return
       }
@@ -62,15 +74,14 @@ export default function Board({
       const direction = DIRECTIONS.find((d) => bindings[d] === key)
       if (!direction) return
       e.preventDefault()
-      setLevel((level) => {
-        const newBoard = pushTile(level.board, direction)
-        if (newBoard === level.board) return level
-        return { ...level, board: newBoard, history: [...level.history, level.board] }
-      })
+      const newBoard = pushTile(board, direction)
+      if (newBoard === board) return
+      recordAction(run, 'move', direction)
+      setLevel((level) => ({ ...level, board: newBoard, history: [...level.history, board] }))
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [bindings, cleared, levelIndex, onExit])
+  }, [bindings, board, cleared, history, levelIndex, onExit, run])
 
   const cellSize = Math.floor(BOARD_VIEW / Math.max(board.cols, board.rows))
   const atomSize = Math.round(cellSize * 0.8)
@@ -166,7 +177,7 @@ export default function Board({
             <h2>클리어! {targetMolecule}</h2>
             <p>{explanation ? explanation : '(설명 준비 중)'}</p>
             <p className="clear-popup-hint">
-              선택 키({keyLabel(bindings.select)})를 누르면 처음 화면으로 돌아갑니다.
+              선택 키({keyLabel(bindings.select)}) : 레벨 선택 / 종료 키({keyLabel(bindings.exit)}) : 처음 화면
             </p>
           </div>
         </div>
