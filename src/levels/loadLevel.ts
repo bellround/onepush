@@ -19,7 +19,8 @@ export function loadLevel(def: LevelDef) {
 
   const tiles = def.atoms.map(tileFromDef)
   const walls = (def.grid.walls ?? []).map(([x, y]) => ({ row: y, col: x }))
-  const board = createBoard(def.grid.height, def.grid.width, tiles, controlled.id, walls)
+  const bonders = (def.grid.bonders ?? []).map(([x, y]) => ({ row: y, col: x }))
+  const board = createBoard(def.grid.height, def.grid.width, tiles, controlled.id, walls, bonders)
 
   return { board, name: def.name, targetMolecule: def.targetMolecule, explanation: def.explanation }
 }

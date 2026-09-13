@@ -15,6 +15,8 @@ export interface LevelDef {
     width: number
     height: number
     walls?: [number, number][] // [x, y]
+    // 결합 차수를 올려주는 + 표시. [x, y] — (x, y) 칸의 좌측 상단 격자 모서리(꼭짓점).
+    bonders?: [number, number][]
   }
   atoms: LevelAtomDef[]
   explanation?: string // 클리어 팝업에 표시할 해설 2~3문장 — 콘텐츠는 추후 작성

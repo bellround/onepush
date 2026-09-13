@@ -1,4 +1,4 @@
-import type { Board, ElementTile, Bond, Direction, Wall } from './types.ts'
+import type { Board, Bonder, ElementTile, Bond, Direction, Wall } from './types.ts'
 
 const STEP: Record<Direction, { dr: number; dc: number }> = {
   up: { dr: -1, dc: 0 },
@@ -78,12 +78,79 @@ export function detectBonds(board: Board): Board {
   for (const [a, b] of candidates) {
     if (a.remaining < 1 || b.remaining < 1) continue
     bonded.add(bondKey(a.id, b.id))
-    bonds.push({ a: a.id, b: b.id })
+    bonds.push({ a: a.id, b: b.id, order: 1 })
     a.remaining -= 1
     b.remaining -= 1
   }
 
   return { ...board, tiles, bonds }
+}
+
+// 이미 결합된 두 원자 사이에 결합선을 하나 더 추가한다 (이중·삼중·사중 결합).
+// 양쪽 모두 남은 원자가가 1 이상이어야 하며, 아니면 보드를 그대로 돌려준다.
+// 차수 상한은 따로 두지 않는다 — 원자가(최대 4, 탄소)가 자연스러운 한계다.
+export function increaseBond(board: Board, aId: string, bId: string): Board {
+  const key = bondKey(aId, bId)
+  const bond = board.bonds.find((x) => bondKey(x.a, x.b) === key)
+  const a = board.tiles.find((t) => t.id === aId)
+  const b = board.tiles.find((t) => t.id === bId)
+  if (!bond || !a || !b || a.remaining < 1 || b.remaining < 1) return board
+
+  return {
+    ...board,
+    tiles: board.tiles.map((t) =>
+      t.id === aId || t.id === bId ? { ...t, remaining: t.remaining - 1 } : t,
+    ),
+    bonds: board.bonds.map((x) => (x === bond ? { ...x, order: x.order + 1 } : x)),
+  }
+}
+
+// 결합선의 중점. 칸을 격자 단위로 보고, 칸 (r, c)의 중심을 (r + 0.5, c + 0.5)로 둔다.
+// 그러면 옆으로 붙은 두 칸의 결합선 중점은 두 칸이 맞닿은 격자선 위에 정확히 떨어진다.
+function bondMidpoint(a: ElementTile, b: ElementTile) {
+  return { row: (a.row + b.row) / 2 + 0.5, col: (a.col + b.col) / 2 + 0.5 }
+}
+
+// 이번 이동으로 결합선이 모서리 점 (row, col)을 가로질러 지나갔는가.
+// 한 좌표가 모서리와 정확히 일치한 채로, 다른 좌표가 모서리 값을 넘어가야 한다.
+// - 가로 결합선이 세로로 움직여 모서리의 행을 넘는 경우
+// - 세로 결합선이 가로로 움직여 모서리의 열을 넘는 경우
+// 가만히 있거나(중점이 그대로), 결합선 방향으로 미끄러지면 통과가 아니다.
+function passedThrough(
+  { row, col }: Bonder,
+  before: { row: number; col: number },
+  after: { row: number; col: number },
+): boolean {
+  if (before.col === col && after.col === col) {
+    return Math.min(before.row, after.row) < row && row < Math.max(before.row, after.row)
+  }
+  if (before.row === row && after.row === row) {
+    return Math.min(before.col, after.col) < col && col < Math.max(before.col, after.col)
+  }
+  return false
+}
+
+// 맵에 고정된 + 표시 판정. 이동 전후를 비교해, 결합선이 모서리 점을 가로질러 지나간 결합만
+// 차수를 1 올린다. 이동 중에 새로 생긴 결합은 지나간 것이 아니므로 제외한다.
+export function applyBonders(before: Board, after: Board): Board {
+  let result = after
+  for (const bonder of after.bonders) {
+    for (const bond of after.bonds) {
+      const key = bondKey(bond.a, bond.b)
+      if (!before.bonds.some((x) => bondKey(x.a, x.b) === key)) continue
+
+      const a1 = before.tiles.find((t) => t.id === bond.a)
+      const b1 = before.tiles.find((t) => t.id === bond.b)
+      const a2 = after.tiles.find((t) => t.id === bond.a)
+      const b2 = after.tiles.find((t) => t.id === bond.b)
+      if (!a1 || !b1 || !a2 || !b2) continue
+
+      if (passedThrough(bonder, bondMidpoint(a1, b1), bondMidpoint(a2, b2))) {
+        result = increaseBond(result, bond.a, bond.b)
+      }
+    }
+  }
+  return result
 }
 
 // 조작 그룹(startIds)을 direction으로 밀 때, 실제로 함께 움직여야 하는 타일 id 집합을 계산한다.
@@ -147,7 +214,7 @@ export function pushTile(board: Board, direction: Direction): Board {
     )
   })
   if (hasBondableContact) {
-    return detectBonds(board)
+    return detectBonds(board) // 아무도 움직이지 않으므로 + 표시를 지나갈 일이 없다
   }
 
   const pushSet = computePushGroup(board, dr, dc, group)
@@ -158,7 +225,7 @@ export function pushTile(board: Board, direction: Direction): Board {
   const tiles = board.tiles.map((t) =>
     pushSet.has(t.id) ? { ...t, row: t.row + dr, col: t.col + dc } : t,
   )
-  return detectBonds({ ...board, tiles })
+  return applyBonders(board, detectBonds({ ...board, tiles }))
 }
 
 // 클리어 조건: 판 위 모든 원자가 하나의 그룹으로 결합되고, 모든 원자가 자리가 채워졌을 때.
@@ -174,6 +241,7 @@ export function createBoard(
   tiles: ElementTile[],
   controlledId: string,
   walls: Wall[] = [],
+  bonders: Bonder[] = [],
 ): Board {
-  return detectBonds({ rows, cols, tiles, bonds: [], walls, controlledId })
+  return detectBonds({ rows, cols, tiles, bonds: [], walls, bonders, controlledId })
 }

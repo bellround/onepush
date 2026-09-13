@@ -9,6 +9,8 @@ import type { Board as BoardState, Direction } from '../game/types.ts'
 // 셀 크기를 다시 계산한다 (그리드가 커질수록 셀은 작아짐).
 const BOARD_VIEW = 678
 const DIRECTIONS: Direction[] = ['up', 'down', 'left', 'right']
+// 이중·삼중 결합에서 결합선끼리 벌어지는 간격(px)
+const BOND_GAP = 8
 
 function levelState(index: number) {
   return { levelIndex: index, history: [] as BoardState[], ...loadLevel(LEVELS[index]) }
@@ -126,25 +128,52 @@ export default function Board({
             />
           ))}
           <svg width={width} height={height} style={{ position: 'absolute', top: 0, left: 0 }}>
-            {board.bonds.map((bond) => {
+            {board.bonds.flatMap((bond) => {
               const a = board.tiles.find((t) => t.id === bond.a)
               const b = board.tiles.find((t) => t.id === bond.b)
-              if (!a || !b) return null
+              if (!a || !b) return []
               const p1 = center(a.row, a.col)
               const p2 = center(b.row, b.col)
-              return (
-                <line
-                  key={`${bond.a}-${bond.b}`}
-                  x1={p1.x}
-                  y1={p1.y}
-                  x2={p2.x}
-                  y2={p2.y}
-                  stroke="#000"
-                  strokeWidth={4}
-                />
-              )
+              // + 표시를 통한 대각선 결합도 있으므로 결합선에 수직인 방향으로 평행이동한다.
+              const len = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+              const ox = (-(p2.y - p1.y) / len) * BOND_GAP
+              const oy = ((p2.x - p1.x) / len) * BOND_GAP
+              return Array.from({ length: bond.order }, (_, i) => {
+                const shift = i - (bond.order - 1) / 2
+                return (
+                  <line
+                    key={`${bond.a}-${bond.b}-${i}`}
+                    x1={p1.x + ox * shift}
+                    y1={p1.y + oy * shift}
+                    x2={p2.x + ox * shift}
+                    y2={p2.y + oy * shift}
+                    stroke="#000"
+                    strokeWidth={4}
+                  />
+                )
+              })
             })}
           </svg>
+          {/* 맵에 고정된 + 표시 — 격자 모서리(격자선이 교차하는 꼭짓점)에 그린다. */}
+          {board.bonders.map((bonder) => {
+            const size = Math.max(16, Math.round(cellSize * 0.2))
+            return (
+              <div
+                key={`bonder-${bonder.row}-${bonder.col}`}
+                className="bonder"
+                aria-hidden="true"
+                style={{
+                  top: bonder.row * cellSize + 2.5 - size / 2,
+                  left: bonder.col * cellSize + 2.5 - size / 2,
+                  width: size,
+                  height: size,
+                  fontSize: Math.round(size * 0.6),
+                }}
+              >
+                +
+              </div>
+            )
+          })}
           {board.tiles.map((tile) => (
             <div
               key={tile.id}
