@@ -18,6 +18,18 @@ const level: LevelDef = {
       [2, 0],
       [2, 6],
       [3, 0],
+      [1, 3],
+      [1, 4],
+      [1, 5],
+      [2, 3],
+      [2, 4],
+      [2, 5],
+      [6, 3],
+      [6, 4],
+      [6, 5],
+      [7, 3],
+      [7, 4],
+      [7, 5],
       [3, 6],
       [4, 0],
       [4, 6],
@@ -43,10 +55,10 @@ const level: LevelDef = {
   },
 
   atoms: [
-    { id: 'He1', type: 'He', x: 1, y: 1, controlled: true },
-    { id: 'o1', type: 'O', x: 3, y: 3 },
-    { id: 'h2', type: 'H', x: 5, y: 2 },
-    { id: 'h1', type: 'H', x: 6, y: 4 },
+    { id: 'H1', type: 'H', x: 2, y: 2, controlled: true },
+    { id: 'H2', type: 'H', x: 4, y: 3 },
+    { id: 'O1', type: 'O', x: 4, y: 5 },
+    { id: 'He1', type: 'He', x: 6, y: 2 },
   ],
 }
 
