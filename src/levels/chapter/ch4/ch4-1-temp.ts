@@ -9,15 +9,25 @@ const level: LevelDef = {
   moleculeName: '',
   moleculeExplanation: '',
   grid: {
-    width: 0,
-    height: 0,
+    width: 7,
+    height: 7,
     walls: [
-      // [x, y],
+      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0],
+      [0, 1], [6, 1], [1, 1], [1, 2], [2, 1],
+      [0, 2], [6, 2], [5, 1], [1, 5],
+      [0, 3], [6, 3],
+      [0, 4], [6, 4],
+      [0, 5], [6, 5],
+      [0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6],
     ],
+    bonders: [
+      [4, 4],
+    ]
   },
 
   atoms: [
-    // { id: 'x1', type: 'H', x: 0, y: 0, controlled: true },
+    { id: 'O1', type: 'O', x: 5, y: 2, controlled: true },
+    { id: 'O2', type: 'O', x: 2, y: 5},
   ],
 }
 

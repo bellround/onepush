@@ -1,7 +1,7 @@
 import type { LevelDef } from '../../types.ts'
 
 const level: LevelDef = {
-  id: 'ch3-2',
+  id: 'ch3-5',
   name: '',
   targetMolecule: '',
   explanation: '',
