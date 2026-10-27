@@ -11,6 +11,8 @@ const BOARD_VIEW = 678
 const DIRECTIONS: Direction[] = ['up', 'down', 'left', 'right']
 // 이중·삼중 결합에서 결합선끼리 벌어지는 간격(px)
 const BOND_GAP = 8
+// 격자선 두께(px) — 셀 안쪽은 이 선 다음부터 시작한다.
+const GRID_LINE = 5
 
 function levelState(index: number) {
   return { levelIndex: index, history: [] as BoardState[], ...loadLevel(LEVELS[index]) }
@@ -86,12 +88,13 @@ export default function Board({
   }, [bindings, board, cleared, history, levelIndex, onExit, run])
 
   const cellSize = Math.floor(BOARD_VIEW / Math.max(board.cols, board.rows))
-  const atomSize = Math.round(cellSize * 0.8)
+  const atomSize = Math.round((cellSize - GRID_LINE) * 0.8)
   const width = board.cols * cellSize
   const height = board.rows * cellSize
+  // 셀 안쪽(격자선 제외) 한가운데
   const center = (row: number, col: number) => ({
-    x: col * cellSize + cellSize / 2 + 5,
-    y: row * cellSize + cellSize / 2 - 5,
+    x: col * cellSize + GRID_LINE + (cellSize - GRID_LINE) / 2,
+    y: row * cellSize + GRID_LINE + (cellSize - GRID_LINE) / 2,
   })
 
   return (
@@ -179,8 +182,8 @@ export default function Board({
               key={tile.id}
               style={{
                 position: 'absolute',
-                top: tile.row * cellSize + (cellSize - atomSize) / 2,
-                left: tile.col * cellSize + (cellSize - atomSize) / 2,
+                top: center(tile.row, tile.col).y - atomSize / 2,
+                left: center(tile.row, tile.col).x - atomSize / 2,
                 width: atomSize,
                 height: atomSize,
                 display: 'flex',
@@ -189,11 +192,18 @@ export default function Board({
                 justifyContent: 'center',
                 borderRadius: '50%',
                 boxSizing: 'border-box',
-                border: tile.id === board.controlledId ? '3px solid #000' : '3px solid #6b6375',
+                border:
+                  tile.id === board.controlledId ? '2.8px solid transparent' : '2.8px solid #393939',
                 background: tile.id === board.controlledId ? '#E8C9BE' : '#fff',
                 transition: 'top 120ms, left 120ms',
               }}
             >
+              {tile.id === board.controlledId && (
+                <svg className="atom-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  {/* pathLength=100 덕분에 dasharray를 둘레의 % 로 쓸 수 있다 — 4토막 점선 */}
+                  <circle cx="50" cy="50" r="48.5" pathLength={100} strokeDasharray="3.5 2.2" />
+                </svg>
+              )}
               <strong style={{ fontSize: Math.round(atomSize * 0.23) }}>{tile.symbol}</strong>
               <small style={{ fontSize: Math.round(atomSize * 0.135) }}>{tile.remaining}</small>
             </div>
