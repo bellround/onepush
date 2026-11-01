@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
 const level: LevelDef = {
   id: 'ch4-2',
-  name: '',
+  name: '100만분의 1초(C₂O₂)',
   targetMolecule: '에틸렌다이온(C₂O₂)',
   explanation: '에틸렌다이온은 너무 불안정해서 평균적으로 100만분의 1초도 안되어 붕괴합니다.',
   moleculeName: '에틸렌다이온(C₂O₂)',

@@ -2,7 +2,7 @@ import type { LevelDef } from '../../types.ts'
 
 const level: LevelDef = {
   id: 'ch3-1',
-  name: '',
+  name: '안 붙는 원자(H₂O)',
   targetMolecule: '물(H₂O)',
   explanation: '지구 표면의 약 70%는 물로 덮여 있다',
   moleculeName: '물(H₂O)',

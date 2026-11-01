@@ -2,7 +2,7 @@ import type { LevelDef } from '../../types.ts'
 
 const level: LevelDef = {
   id: 'ch3-4',
-  name: '',
+  name: '헬륨 울타리(NH₃)',
   targetMolecule: '암모니아(NH₃)',
   explanation: '암모니아는 물에 아주 잘 녹는다',
   moleculeName: '암모니아(NH₃)',

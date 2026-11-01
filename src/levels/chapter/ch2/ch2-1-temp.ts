@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
 const level: LevelDef = {
   id: 'ch2-1',
-  name: '',
+  name: '두 갈래(HN(OH)₂)',
   targetMolecule: '다이하이드록시아민(HN(OH)₂)',
   explanation: '다이하이드록시아민은 주변이 산성일때 염기, 주변이 염기성일때 산이 된다',
   moleculeName: '다이하이드록시아민(HN(OH)₂)',

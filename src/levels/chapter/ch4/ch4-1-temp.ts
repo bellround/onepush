@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
 const level: LevelDef = {
   id: 'ch4-1',
-  name: '',
+  name: '두 손 맞잡기(O₂)',
   targetMolecule: '산소(O₂)',
   explanation: '공기의 약 21%는 산소이다',
   moleculeName: '산소(O₂)',

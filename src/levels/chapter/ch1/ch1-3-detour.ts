@@ -2,7 +2,7 @@ import type { LevelDef } from '../../types.ts'
 
 const level: LevelDef = {
   id: 'ch1-3',
-  name: '반복',
+  name: '반복(H₂O₂)',
   targetMolecule: '과산화수소(H₂O₂)',
   explanation: '과산화수소는 상처 소독약으로 쓰인다',
   moleculeName: '과산화수소(H₂O₂)',

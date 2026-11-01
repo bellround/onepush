@@ -2,7 +2,7 @@ import type { LevelDef } from '../../types.ts'
 
 const level: LevelDef = {
   id: 'ch1-4',
-  name: '손이 세 개',
+  name: '손이 세 개(NH₂OH)',
   targetMolecule: '하이드록실아민(NH₂OH)',
   explanation: '하이드록실아민은 나일론 원료를 만드는 데 쓰인다',
   moleculeName: '하이드록실아민(NH₂OH)',

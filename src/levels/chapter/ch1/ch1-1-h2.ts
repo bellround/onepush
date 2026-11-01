@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 기획서 5.2 "첫 만남" — 원자가 1인 원자끼리는 정확히 1:1로만 결합됨을 체험
 const level: LevelDef = {
   id: 'ch1-1',
-  name: '제일 쉬운거',
+  name: '제일 쉬운거(H₂O)',
   targetMolecule: '물(H₂O)',
   explanation: '인간의 몸에서 물은 약 70%를 차지한다',
   tutorial: true,

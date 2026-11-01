@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
 const level: LevelDef = {
   id: 'ch2-2',
-  name: '',
+  name: '로켓 연료(N₂H₄)',
   targetMolecule: '하이드라진(N₂H₄)',
   explanation: '하이드라진은 로켓 연료로 쓰인다',
   moleculeName: '하이드라진(N₂H₄)',

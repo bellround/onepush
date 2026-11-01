@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
 const level: LevelDef = {
   id: 'ch2-3',
-  name: '',
+  name: '술 한 잔(C₂H₅OH)',
   targetMolecule: '에탄올(C₂H₅OH)',
   explanation: '에탄올은 술의 주성분이다',
   moleculeName: '에탄올(C₂H₅OH)',

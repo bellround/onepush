@@ -2,7 +2,7 @@ import type { LevelDef } from '../../types.ts'
 
 const level: LevelDef = {
   id: 'ch3-5',
-  name: '',
+  name: '마지막 헬륨(CH₄)',
   targetMolecule: '메테인(CH₄)',
   explanation: '메테인은 천연가스의 주성분이다',
   moleculeName: '메테인(CH₄)',

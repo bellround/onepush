@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 형식만 있는 빈 템플릿 — 아래 값 채워서 실제 레벨로 교체할 것.
 const level: LevelDef = {
   id: 'ch2-5',
-  name: '',
+  name: '물속에서만(CH₂(OH)₂)',
   targetMolecule: '메탄다이올(CH₂(OH)₂)',
   explanation: '메탄다이올은 수용액에서만 안정적으로 존재한다',
   moleculeName: '메탄다이올(CH₂(OH)₂)',

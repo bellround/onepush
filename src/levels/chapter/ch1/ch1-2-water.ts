@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 기획서 9번 표 JSON 예시("물방울") 그대로
 const level: LevelDef = {
   id: 'ch1-2',
-  name: '좁은방',
+  name: '좁은방(H₂O)',
   targetMolecule: '물(H₂O)',
   explanation: '물 분자는 일직선이 아니라 구부러진 모양이다',
   moleculeName: '물(H₂O)',

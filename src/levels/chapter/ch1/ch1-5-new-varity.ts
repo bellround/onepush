@@ -3,7 +3,7 @@ import type { LevelDef } from '../../types.ts'
 // 챕터1 마무리 — 더 긴 벽을 돌아가서 산소의 두 손을 모두 채운다.
 const level: LevelDef = {
   id: 'ch1-5',
-  name: '마지막 우회로',
+  name: '마지막 우회로(CH₃OH)',
   targetMolecule: '메탄올(CH₃OH)',
   explanation: '메탄올은 마시면 실명할 수 있는 위험한 물질이다',
   moleculeName: '메탄올(CH₃OH)',
