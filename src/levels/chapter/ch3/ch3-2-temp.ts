@@ -3,10 +3,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch3-2',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '암모니아(NH₃)',
+  explanation: '지구상의 모든 암모니아의 2/3은 소에서 발생합니다',
+  moleculeName: '암모니아(NH₃)',
+  moleculeExplanation: '질소 1개와 수소 3개가 붙어서 생긴 분자',
   grid: {
     width: 7,
     height: 7,

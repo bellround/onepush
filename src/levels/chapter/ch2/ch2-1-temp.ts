@@ -4,10 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch2-1',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '다이하이드록시아민(HN(OH)₂)',
+  explanation: '다이하이드록시아민은 주변이 산성일때 염기, 주변이 염기성일때 산이 된다',
+  moleculeName: '다이하이드록시아민(HN(OH)₂)',
+  moleculeExplanation: '질소 1개, 수소 3개, 산소 2개가 붙어서 생긴 분자',
   grid: {
     width: 7,
     height: 8,

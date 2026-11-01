@@ -4,10 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch4-2',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '에틸렌다이온(C₂O₂)',
+  explanation: '에틸렌다이온은 너무 불안정해서 평균적으로 100만분의 1초도 안되어 붕괴합니다.',
+  moleculeName: '에틸렌다이온(C₂O₂)',
+  moleculeExplanation: '탄소 2개와 산소 2개가 붙어서 생긴 분자',
   grid: {
     width: 7,
     height: 7,

@@ -380,6 +380,18 @@
   font-size: 13px;
 }
 
+/* 처음 배우는 레벨의 단계 안내 — 좌상단 키 안내는 잘 안 보므로 격자 바로 아래에 크게 띄운다. */
+.board-tutorial {
+  margin: 0;
+  max-width: 560px;
+  padding: 14px 22px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 19px;
+  text-align: center;
+}
+
 /* 조종 중인 원소 — 점선 테두리가 천천히 돌아간다 (안쪽 글자는 그대로). */
 .atom-ring {
   position: absolute;

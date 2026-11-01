@@ -4,9 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch1-1',
   name: '제일 쉬운거',
-  targetMolecule: '물(H2O)',
+  targetMolecule: '물(H₂O)',
   explanation: '인간의 몸에서 물은 약 70%를 차지한다',
-  moleculeName: 'H2O',
+  tutorial: true,
+  moleculeName: 'H₂O',
   moleculeExplanation: '수소 2개와 산소 1개가 붙어서 생긴 분자',
   grid: { 
     width: 7,

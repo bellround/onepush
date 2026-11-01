@@ -4,10 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch2-2',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '하이드라진(N₂H₄)',
+  explanation: '하이드라진은 로켓 연료로 쓰인다',
+  moleculeName: '하이드라진(N₂H₄)',
+  moleculeExplanation: '질소 2개와 수소 4개가 붙어서 생긴 분자',
   grid: {
     width: 9,
     height: 10,

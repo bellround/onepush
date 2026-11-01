@@ -4,10 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch2-4',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '에테인(C₂H₆)',
+  explanation: '에테인은 천연가스에 조금 들어 있다',
+  moleculeName: '에테인(C₂H₆)',
+  moleculeExplanation: '탄소 2개와 수소 6개가 붙어서 생긴 분자',
   grid: {
     width: 9,
     height: 9,

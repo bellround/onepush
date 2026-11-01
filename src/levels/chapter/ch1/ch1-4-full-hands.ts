@@ -3,10 +3,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch1-4',
   name: '손이 세 개',
-  targetMolecule: 'NH2OH',
-  explanation: '',
-  moleculeName: 'NH2OH',
-  moleculeExplanation: '',
+  targetMolecule: '하이드록실아민(NH₂OH)',
+  explanation: '하이드록실아민은 나일론 원료를 만드는 데 쓰인다',
+  moleculeName: '하이드록실아민(NH₂OH)',
+  moleculeExplanation: '질소 1개, 수소 3개, 산소 1개가 붙어서 생긴 분자',
   grid: {
     width: 8,
     height: 7,

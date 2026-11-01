@@ -4,10 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch1-5',
   name: '마지막 우회로',
-  targetMolecule: '메탄올(CH3OH)',
-  explanation: '',
-  moleculeName: '메탄올(CH3OH)',
-  moleculeExplanation: '',
+  targetMolecule: '메탄올(CH₃OH)',
+  explanation: '메탄올은 마시면 실명할 수 있는 위험한 물질이다',
+  moleculeName: '메탄올(CH₃OH)',
+  moleculeExplanation: '탄소 1개, 수소 4개, 산소 1개가 붙어서 생긴 분자',
   grid: {
     width: 9,
     height: 7,

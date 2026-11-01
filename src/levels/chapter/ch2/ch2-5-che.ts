@@ -4,10 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch2-5',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '메탄다이올(CH₂(OH)₂)',
+  explanation: '메탄다이올은 수용액에서만 안정적으로 존재한다',
+  moleculeName: '메탄다이올(CH₂(OH)₂)',
+  moleculeExplanation: '탄소 1개, 수소 4개, 산소 2개가 붙어서 생긴 분자',
   grid: {
     width: 7,
     height: 9,
@@ -42,6 +42,8 @@ const level: LevelDef = {
       [6, 7],
       [3, 1],
       [3, 7],
+      [1, 4],
+      [5, 4],
     ],
   },
 

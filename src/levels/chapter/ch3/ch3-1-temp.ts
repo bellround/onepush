@@ -3,10 +3,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch3-1',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '물(H₂O)',
+  explanation: '지구 표면의 약 70%는 물로 덮여 있다',
+  moleculeName: '물(H₂O)',
+  moleculeExplanation: '수소 2개와 산소 1개가 붙어서 생긴 분자',
   grid: {
     width: 9,
     height: 7,

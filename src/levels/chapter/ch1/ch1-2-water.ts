@@ -4,10 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch1-2',
   name: '좁은방',
-  targetMolecule: '물(H2O)',
-  explanation: '',
-  moleculeName: '물(H2O)',
-  moleculeExplanation: '',
+  targetMolecule: '물(H₂O)',
+  explanation: '물 분자는 일직선이 아니라 구부러진 모양이다',
+  moleculeName: '물(H₂O)',
+  moleculeExplanation: '수소 2개와 산소 1개가 붙어서 생긴 분자',
   grid: {
     width: 5,
     height: 4,

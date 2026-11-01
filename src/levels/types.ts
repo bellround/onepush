@@ -20,6 +20,7 @@ export interface LevelDef {
   }
   atoms: LevelAtomDef[]
   explanation?: string // 클리어 팝업에 표시할 해설 2~3문장 — 콘텐츠는 추후 작성
+  tutorial?: boolean // 플레이 화면에 단계 안내를 띄운다 (처음 배우는 레벨용)
   moleculeName: string // 분자 도감에 표시할 분자 이름
   moleculeExplanation?: string // 분자 도감에 표시할 설명 — 콘텐츠는 추후 작성
 }

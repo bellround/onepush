@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { isCleared, pushTile } from '../game/board.ts'
 import { keyLabel, loadKeybindings } from '../game/keybindings.ts'
 import { finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
+import { tutorialHint } from '../game/tutorial.ts'
 import { LEVELS, loadLevel } from '../levels/index.ts'
 import type { Board as BoardState, Direction } from '../game/types.ts'
 
@@ -106,7 +107,8 @@ export default function Board({
         <p>되돌리기 : {keyLabel(bindings.undo)}</p>
         <p>리셋 : {keyLabel(bindings.reset)}</p>
       </div>
-      <div className="board-viewport" style={{ width: BOARD_VIEW, height: BOARD_VIEW }}>
+      {/* 가로는 레벨이 바뀌어도 고정, 세로는 격자만큼만 — 아래 안내가 창 밖으로 밀리지 않게. */}
+      <div className="board-viewport" style={{ width: BOARD_VIEW, height }}>
         <div
           className="board-grid"
           style={{
@@ -210,6 +212,11 @@ export default function Board({
           ))}
         </div>
       </div>
+      {LEVELS[levelIndex].tutorial && !cleared && (
+        <p className="board-tutorial">
+          {tutorialHint(history.length, board.bonds.length, bindings)}
+        </p>
+      )}
       {cleared && (
         <div className="clear-popup">
           <div className="clear-popup-card">

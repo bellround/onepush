@@ -4,10 +4,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch4-1',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '산소(O₂)',
+  explanation: '공기의 약 21%는 산소이다',
+  moleculeName: '산소(O₂)',
+  moleculeExplanation: '산소 2개가 이중 결합으로 붙어서 생긴 분자',
   grid: {
     width: 7,
     height: 7,

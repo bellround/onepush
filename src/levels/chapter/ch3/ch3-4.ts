@@ -3,10 +3,10 @@ import type { LevelDef } from '../../types.ts'
 const level: LevelDef = {
   id: 'ch3-4',
   name: '',
-  targetMolecule: '',
-  explanation: '',
-  moleculeName: '',
-  moleculeExplanation: '',
+  targetMolecule: '암모니아(NH₃)',
+  explanation: '암모니아는 물에 아주 잘 녹는다',
+  moleculeName: '암모니아(NH₃)',
+  moleculeExplanation: '질소 1개와 수소 3개가 붙어서 생긴 분자',
   grid: {
     width: 9,
     height: 8,
@@ -19,17 +19,23 @@ const level: LevelDef = {
       [0, 5], [8, 5],
       [0, 6], [8, 6],
       [0, 7], [1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7], [8, 7],
-      [1, 3], [3, 3], [5, 3], [7, 3],
+      [1, 6], [2, 6], [3, 6], [5, 6], [6, 6], [7, 6],
+      [1, 5], [2, 5], [3, 5], [5, 5], [6, 5], [7, 5],
     ],
   },
 
   atoms: [
-    { id: 'He1', type: 'He', x: 4, y: 5, controlled: true },
-    { id: 'H2', type: 'H', x: 5, y: 5 },
-    { id: 'H1', type: 'H', x: 3, y: 5 },
+    { id: 'N1', type: 'N', x: 4, y: 3, controlled: true },
+    { id: 'H2', type: 'H', x: 4, y: 6 },
+    { id: 'H1', type: 'H', x: 2, y: 3 },
     { id: 'H3', type: 'H', x: 6, y: 3 },
-    { id: 'H4', type: 'H', x: 2, y: 3 },
-    { id: "C1", type: "C", x: 4, y: 3}
+    { id: "He1", type: "He", x: 3, y: 3},
+    { id: "He2", type: "He", x: 3, y: 2},
+    { id: "He3", type: "He", x: 3, y: 4},
+    { id: "He4", type: "He", x: 5, y: 3},
+    { id: "He5", type: "He", x: 5, y: 2},
+    { id: "He6", type: "He", x: 5, y: 4},
+    { id: "He7", type: "He", x: 4, y: 2},
     
   ],
 }
