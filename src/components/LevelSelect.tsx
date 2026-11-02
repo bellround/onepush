@@ -95,7 +95,7 @@ export default function LevelSelect({
                   disabled={locked}
                   onClick={() => onSelect(index)}
                 >
-                  {index + 1}. {level.name}
+                  {index + 1}. {level.name.replace(/\(.*\)$/, '')}
                   {locked ? ' (잠김)' : ''}
                 </button>
               )
