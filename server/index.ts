@@ -4,7 +4,7 @@ import { extname, join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Pool } from 'pg'
-import { INSERT_ROUND, listRounds, openDb, pagination, roundValues } from './db.ts'
+import { exportDb, INSERT_ROUND, listRounds, openDb, pagination, roundValues } from './db.ts'
 import { createAuth, sameOrigin } from './auth.ts'
 import { injectConfig, normalizeBase } from './platform.ts'
 
@@ -58,6 +58,13 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
             if (!auth.allowed(req)) return json(res, 401, { error: 'Unauthorized' })
             auth.logout(req)
             return res.writeHead(204).end()
+          }
+          if (path === '/api/admin/export' && req.method === 'GET') {
+            if (!auth.allowed(req)) return json(res, 401, { error: 'Unauthorized' })
+            let data
+            try { data = await exportDb(db) } catch { return json(res, 503, { error: 'Database unavailable' }) }
+            res.setHeader('Content-Disposition', `attachment; filename="ion-puzzle-db-${data.exportedAt.slice(0, 10)}.json"`)
+            return json(res, 200, data)
           }
           if (path === '/api/admin/rounds' && req.method === 'GET') {
             if (!auth.allowed(req)) return json(res, 401, { error: 'Unauthorized' })

@@ -66,10 +66,13 @@ export default function Admin() {
   const [page, setPage] = useState<Page | null>(null)
   const [cursors, setCursors] = useState<Cursor[]>([null])
   const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const request = useRef<AbortController | null>(null)
+  const exportRequest = useRef<AbortController | null>(null)
   const authenticated = useRef(false)
   const token = useRef<string | null>(null)
   const retryCursors = useRef<Cursor[]>([null])
@@ -84,6 +87,12 @@ export default function Admin() {
   }
 
   const requireLogin = useCallback((message: string) => {
+    request.current?.abort()
+    exportRequest.current?.abort()
+    exportRequest.current = null
+    setBusy(false)
+    setExporting(false)
+    setExportError('')
     authenticated.current = false
     token.current = null
     setAuth('login')
@@ -129,6 +138,8 @@ export default function Admin() {
   useEffect(() => {
     return () => {
       request.current?.abort()
+      exportRequest.current?.abort()
+      exportRequest.current = null
       token.current = null
     }
   }, [])
@@ -166,6 +177,10 @@ export default function Admin() {
   }
 
   async function logout() {
+    exportRequest.current?.abort()
+    exportRequest.current = null
+    setExporting(false)
+    setExportError('')
     const controller = startRequest()
     try {
       const response = await fetch(apiUrl('/admin/logout'), {
@@ -179,6 +194,49 @@ export default function Admin() {
       if (!controller.signal.aborted) setError('로그아웃하지 못했습니다. 다시 로그아웃해 주세요.')
     } finally {
       if (!controller.signal.aborted) setBusy(false)
+    }
+  }
+
+  async function downloadExport() {
+    if (exportRequest.current || busy || !authenticated.current) return
+    const controller = new AbortController()
+    exportRequest.current = controller
+    setExporting(true)
+    setExportError('')
+    try {
+      const response = await fetch(apiUrl('/admin/export'), {
+        credentials: 'omit', cache: 'no-store', signal: controller.signal,
+        headers: { Authorization: `Bearer ${token.current ?? ''}` },
+      })
+      if (controller.signal.aborted) return
+      if (response.status === 401) {
+        requireLogin('로그인이 만료되었습니다. 다시 로그인해 주세요.')
+        return
+      }
+      if (!response.ok) throw new Error('export')
+      const blob = await response.blob()
+      if (controller.signal.aborted) return
+      const filename = response.headers.get('Content-Disposition')?.match(/filename="?(ion-puzzle-db-\d{4}-\d{2}-\d{2}\.json)"?(?:;|$)/i)?.[1]
+        ?? `ion-puzzle-db-${new Date().toISOString().slice(0, 10)}.json`
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      try {
+        link.href = url
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+      } finally {
+        link.remove()
+        // Give the browser time to start reading the download before releasing it.
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }
+    } catch {
+      if (!controller.signal.aborted) setExportError('전체 데이터를 다운로드하지 못했습니다. 연결 상태를 확인하고 다시 시도해 주세요.')
+    } finally {
+      if (exportRequest.current === controller) {
+        exportRequest.current = null
+        setExporting(false)
+      }
     }
   }
 
@@ -212,11 +270,13 @@ export default function Admin() {
             <div><h2>전체 기록</h2><p>페이지당 최대 50개{updatedAt && ` · ${updatedAt} 조회`}</p></div>
             <div className="admin-controls">
               <button onClick={() => void load([null])} disabled={busy}>새로고침</button>
+              <button onClick={() => void downloadExport()} disabled={busy || exporting} aria-busy={exporting}>{exporting ? '다운로드 준비 중…' : '전체 DB 다운로드'}</button>
               {auth === 'ready' && <button onClick={() => void logout()} disabled={busy}>로그아웃</button>}
             </div>
           </div>
+          {exportError && <p className="admin-error" role="alert">{exportError}</p>}
           {error && <div className="admin-error" role="alert"><p>{error}</p>{page && <p>아래는 마지막으로 불러온 기록입니다.</p>}<button onClick={() => void load(retryCursors.current)} disabled={busy}>기록 다시 불러오기</button></div>}
-          <p className="admin-status" role="status">{busy ? '기록을 불러오는 중…' : page ? `${cursors.length}페이지 · ${page.rows.length}개 기록` : '기록을 아직 불러오지 못했습니다.'}</p>
+          <p className="admin-status" role="status">{exporting ? '전체 데이터를 JSON 파일로 다운로드하는 중…' : busy ? '기록을 불러오는 중…' : page ? `${cursors.length}페이지 · ${page.rows.length}개 기록` : '기록을 아직 불러오지 못했습니다.'}</p>
           <div aria-busy={busy}>
             {page?.rows.length === 0 && <div className="admin-empty"><h2>표시할 기록이 없습니다</h2><p>{cursors.length > 1 ? '이 페이지에 남은 기록이 없습니다. 이전 페이지로 돌아가거나 새로고침해 주세요.' : '저장된 플레이 기록이 아직 없습니다. 나중에 새로고침해 주세요.'}</p></div>}
             <div className="admin-records" key={cursors.join(':') + updatedAt}>

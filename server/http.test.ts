@@ -6,6 +6,52 @@ import { normalizeBase, injectConfig } from './platform.ts'
 import { createAuth } from './auth.ts'
 import type { IncomingMessage } from 'node:http'
 
+test('admin JSON export requires auth and origin, supports prefix, and hides database failures', async () => {
+  let failing = false
+  let calls = 0
+  const tables = {
+    rounds: Array.from({ length: 105 }, (_, i) => ({ id: String(9007199254740993n + BigInt(i)), actions: [{ extra: { preserved: true } }], created_at: '2026-01-02 03:04:05.123456+00' })),
+    round_imports: [{ source: 'fixture', source_id: '1', content_hash: 'hash', round_id: '9007199254740993' }],
+  }
+  const db = { query: async () => { calls++; if (failing) throw new Error('private credentials'); return { rows: [tables] } } } as unknown as Pool
+  const server = createApp(db, { basePath: '/students/1116', password: 'test-only', publicOrigin: 'https://example.test' })
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  const root = `http://127.0.0.1:${(server.address() as { port: number }).port}`
+  try {
+    for (const authorization of ['', 'Bearer invalid']) {
+      const denied = await fetch(`${root}/api/admin/export`, { headers: { authorization } })
+      assert.equal(denied.status, 401)
+      assert.equal(denied.headers.get('cache-control'), 'no-store')
+      assert.equal(denied.headers.get('content-disposition'), null)
+    }
+    const login = await fetch(`${root}/api/admin/login`, { method: 'POST', headers: { origin: 'https://example.test' }, body: JSON.stringify({ password: 'test-only' }) })
+    assert.equal(login.status, 200)
+    const { token } = await login.json() as { token: string }
+    const authorization = `Bearer ${token}`
+    assert.equal((await fetch(`${root}/api/admin/export`, { headers: { authorization, origin: 'https://evil.test' } })).status, 403)
+    assert.equal(calls, 0)
+    for (const prefix of ['', '/students/1116']) {
+      const response = await fetch(`${root}${prefix}/api/admin/export?limit=1&beforeId=1`, { headers: { authorization } })
+      assert.equal(response.status, 200)
+      assert.equal(response.headers.get('content-type'), 'application/json')
+      assert.equal(response.headers.get('cache-control'), 'no-store')
+      assert.equal(response.headers.get('content-security-policy'), "frame-ancestors 'none'")
+      assert.equal(response.headers.get('x-frame-options'), 'DENY')
+      const body = await response.json() as { exportedAt: string }
+      assert.equal(new Date(body.exportedAt).toISOString(), body.exportedAt)
+      assert.equal(response.headers.get('content-disposition'), `attachment; filename="ion-puzzle-db-${body.exportedAt.slice(0, 10)}.json"`)
+      assert.deepEqual(body, { formatVersion: 1, exportedAt: body.exportedAt, ...tables })
+    }
+    assert.equal(calls, 2)
+    failing = true
+    const response = await fetch(`${root}/api/admin/export`, { headers: { authorization } })
+    assert.equal(response.status, 503)
+    assert.equal(response.headers.get('content-disposition'), null)
+    assert.equal(response.headers.get('cache-control'), 'no-store')
+    assert.deepEqual(await response.json(), { error: 'Database unavailable' })
+  } finally { await new Promise<void>(resolve => server.close(() => resolve())) }
+})
+
 test('base config is safe and stable on nested routes', () => {
   assert.equal(normalizeBase('/students/1116/'), '/students/1116')
   assert.throws(() => normalizeBase('/bad"<script>'))

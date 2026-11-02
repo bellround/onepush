@@ -125,3 +125,11 @@ export async function listRounds(db: Pick<Pool, 'query'>, page: ReturnType<typeo
   const rows = result.rows.slice(0, page.limit).map(row => ({ ...row, created_at: new Date(row.created_at).toISOString() }))
   return { rows, hasMore, nextBeforeId: hasMore ? rows.at(-1)!.id as string : null }
 }
+
+export async function exportDb(db: Pick<Pool, 'query'>) {
+  // One statement shares a snapshot; text overrides avoid bigint and timestamp precision loss.
+  const result = await db.query(`SELECT
+    COALESCE((SELECT jsonb_agg(to_jsonb(r) || jsonb_build_object('id', r.id::text, 'created_at', r.created_at::text) ORDER BY r.id) FROM rounds r), '[]'::jsonb) AS rounds,
+    COALESCE((SELECT jsonb_agg(to_jsonb(i) || jsonb_build_object('round_id', i.round_id::text) ORDER BY i.source, i.source_id) FROM round_imports i), '[]'::jsonb) AS round_imports`)
+  return { formatVersion: 1, exportedAt: new Date().toISOString(), ...result.rows[0] }
+}

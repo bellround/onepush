@@ -52,6 +52,26 @@ and created_at is an ISO UTC timestamp. Pagination orders descending IDs and use
 limit+1. POST telemetry returns 204, invalid input 400, oversized input 413,
 and database failures 503. Unknown API routes return JSON 404.
 
+## JSON database export
+
+GET `/api/admin/export` (frontend: `apiUrl('/admin/export')`) requires the existing
+admin bearer token and uses the same origin checks and no-store headers. Both
+deployment-prefixed and proxy-stripped paths work. Success returns application/json
+with `Content-Disposition: attachment; filename="ion-puzzle-db-YYYY-MM-DD.json"`
+(UTC export date). The body is
+`{formatVersion: 1, exportedAt: ISO timestamp, rounds: [...], round_imports: [...]}`.
+Both arrays contain all rows and columns from one PostgreSQL statement snapshot;
+there is no pagination or filtering. Empty tables produce empty arrays. Round IDs
+and import round_id values are decimal strings. created_at uses PostgreSQL timestamp
+text with its timezone offset and full stored precision; actions are unchanged.
+Database failures return 503 `{error: "Database unavailable"}` without an attachment.
+
+This is application data JSON, not a native PostgreSQL backup or restore format;
+it excludes schema, sequences, database roles, credentials, and in-memory sessions.
+No restore endpoint is provided. The full export is buffered in memory, so large
+datasets remain subject to server memory and database statement-timeout limits.
+Treat downloaded files as sensitive records; do not commit or publicly share them.
+
 ## One-off SQLite migration
 
 Do not upload or commit the database, WAL, records, or credentials. Stop the local

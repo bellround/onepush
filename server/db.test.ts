@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { listRounds, openDb, pagination, roundValues, insertRound, ROUND_COLUMNS } from './db.ts'
+import { exportDb, listRounds, openDb, pagination, roundValues, insertRound, ROUND_COLUMNS } from './db.ts'
 
 export const VALID = {
   sessionId: 'abc-123', levelId: 'ch1-4', levelIndex: 3, cleared: true,
@@ -8,6 +8,38 @@ export const VALID = {
   undoCount: 2, firstMoveMs: 500, maxGapMs: 1300,
   actions: [{ kind: 'move', direction: 'up', t: 500, board: [[{ ion: 'Na', charge: 1 }]], extra: { preserved: true } }],
 }
+
+test('actual PostgreSQL export includes complete tables, exact IDs and microsecond timestamps', { skip: !process.env.TEST_DATABASE_URL }, async () => {
+  const db = await openDb(process.env.TEST_DATABASE_URL)
+  const client = await db.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('CREATE TEMP TABLE rounds (LIKE public.rounds INCLUDING DEFAULTS) ON COMMIT DROP')
+    await client.query('CREATE TEMP TABLE round_imports (LIKE public.round_imports) ON COMMIT DROP')
+    const empty = await exportDb(client)
+    assert.deepEqual(empty.rounds, [])
+    assert.deepEqual(empty.round_imports, [])
+    const values = roundValues(VALID)
+    await client.query(`INSERT INTO rounds (id, created_at, ${ROUND_COLUMNS}) SELECT 9007199254740992::bigint + fixture_id, '2026-01-02 03:04:05.123456+00'::timestamptz, ${values.map((_, i) => `$${i + 1}`).join(', ')} FROM generate_series(1, 105) AS fixture_id`, values)
+    await client.query("INSERT INTO round_imports SELECT 'fixture', id::text, 'hash', id FROM rounds")
+    const data = await exportDb(client)
+    const expectedRounds = await client.query('SELECT *, id::text, created_at::text FROM rounds ORDER BY id::bigint')
+    const expectedImports = await client.query('SELECT *, round_id::text FROM round_imports ORDER BY source, source_id')
+    assert.equal(data.formatVersion, 1)
+    assert.equal(new Date(data.exportedAt).toISOString(), data.exportedAt)
+    assert.equal(data.rounds.length, 105)
+    assert.equal(data.round_imports.length, 105)
+    assert.deepEqual(data.rounds, expectedRounds.rows)
+    assert.deepEqual(data.round_imports, expectedImports.rows)
+    assert.equal(data.rounds[0].id, '9007199254740993')
+    assert.match(data.rounds[0].created_at, /\.123456/)
+    assert.deepEqual(data.rounds[0].actions, VALID.actions)
+  } finally {
+    await client.query('ROLLBACK')
+    client.release()
+    await db.end()
+  }
+})
 
 test('validation preserves every round and action field', () => {
   assert.deepEqual(roundValues(VALID), ['abc-123', 'ch1', 4, 'ch1-4', 3, true, 2100, null, true, 1, 2, 500, 1300, JSON.stringify(VALID.actions)])
