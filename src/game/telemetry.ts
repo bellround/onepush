@@ -1,4 +1,5 @@
 import type { Board, Direction } from './types.ts'
+import { apiUrl } from '../platform.ts'
 
 // 한 라운드(= 레벨 1회 플레이) 동안 일어난 조작 하나.
 export interface RoundAction {
@@ -90,7 +91,7 @@ function sessionId(): string {
 
 // 전송 실패는 무시한다 — 기록 때문에 게임이 멈추면 안 된다.
 export function sendRound(record: RoundRecord): void {
-  fetch('/api/rounds', {
+  fetch(apiUrl('/rounds'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...record, sessionId: sessionId() }),

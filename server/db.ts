@@ -1,36 +1,40 @@
-import { DatabaseSync } from 'node:sqlite'
-import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import pg from 'pg'
+import type { Pool } from 'pg'
 
 // 라운드 하나 = 한 행. 조작 순서(actions)만 JSON 문자열로, 나머지는 SQL로 바로 집계할 수 있게 컬럼.
-const SCHEMA = `
+export const SCHEMA = `
   CREATE TABLE IF NOT EXISTS rounds (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id BIGSERIAL PRIMARY KEY,
     session_id TEXT NOT NULL,
     chapter TEXT NOT NULL,
-    round INTEGER NOT NULL,
+    round DOUBLE PRECISION NOT NULL,
     level_id TEXT NOT NULL,
-    level_index INTEGER NOT NULL,
-    cleared INTEGER NOT NULL,
-    clear_ms INTEGER,
-    quit_ms INTEGER,
-    advanced_after_clear INTEGER NOT NULL,
-    reset_count INTEGER NOT NULL,
-    undo_count INTEGER NOT NULL,
-    first_move_ms INTEGER,
-    max_gap_ms INTEGER,
-    actions TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )
+    level_index DOUBLE PRECISION NOT NULL,
+    cleared BOOLEAN NOT NULL,
+    clear_ms DOUBLE PRECISION,
+    quit_ms DOUBLE PRECISION,
+    advanced_after_clear BOOLEAN NOT NULL,
+    reset_count DOUBLE PRECISION NOT NULL,
+    undo_count DOUBLE PRECISION NOT NULL,
+    first_move_ms DOUBLE PRECISION,
+    max_gap_ms DOUBLE PRECISION,
+    actions JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS round_imports (
+    source TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    round_id BIGINT NOT NULL REFERENCES rounds(id),
+    PRIMARY KEY (source, source_id)
+  );
 `
 
-export function openDb(path = process.env.DB_PATH ?? 'data/rounds.db'): DatabaseSync {
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
-  const db = new DatabaseSync(path)
-  // WAL: 쓰는 동안(server insert)도 sqlite3 CLI로 조회/삭제 가능. busy_timeout: 잠깐 겹치면 에러 대신 대기.
-  db.exec('PRAGMA journal_mode = WAL')
-  db.exec('PRAGMA busy_timeout = 5000')
-  db.exec(SCHEMA)
+export async function openDb(connectionString = process.env.DATABASE_URL): Promise<Pool> {
+  if (!connectionString) throw new Error('DATABASE_URL required')
+  const db = new pg.Pool({ connectionString, max: 10, connectionTimeoutMillis: 5000, statement_timeout: 15000 })
+  db.on('error', () => console.warn('Database connection unavailable'))
+  try { await db.query(SCHEMA) } catch (error) { await db.end(); throw error }
   return db
 }
 
@@ -54,9 +58,9 @@ function intOrNull(v: unknown): number | null {
   return v === null || v === undefined ? null : int(v)
 }
 
-function bool(v: unknown): number {
+function bool(v: unknown): boolean {
   if (typeof v !== 'boolean') throw new Error(`bad bool: ${String(v)}`)
-  return v ? 1 : 0
+  return v
 }
 
 function actionsJson(v: unknown): string {
@@ -73,7 +77,7 @@ function actionsJson(v: unknown): string {
   return JSON.stringify(v)
 }
 
-export function insertRound(db: DatabaseSync, body: unknown): void {
+export function roundValues(body: unknown): unknown[] {
   if (typeof body !== 'object' || body === null) throw new Error('bad body')
   const b = body as Record<string, unknown>
 
@@ -82,12 +86,7 @@ export function insertRound(db: DatabaseSync, body: unknown): void {
   const [chapter, round] = levelId.split('-')
   if (!/^ch\d+$/.test(chapter) || !/^\d+$/.test(round ?? '')) throw new Error(`bad levelId: ${levelId}`)
 
-  db.prepare(
-    `INSERT INTO rounds
-       (session_id, chapter, round, level_id, level_index, cleared, clear_ms, quit_ms,
-        advanced_after_clear, reset_count, undo_count, first_move_ms, max_gap_ms, actions)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
+  return [
     str(b.sessionId, 64),
     chapter,
     Number(round),
@@ -102,5 +101,27 @@ export function insertRound(db: DatabaseSync, body: unknown): void {
     intOrNull(b.firstMoveMs),
     intOrNull(b.maxGapMs),
     actionsJson(b.actions),
-  )
+  ]
+}
+
+export const ROUND_COLUMNS = 'session_id, chapter, round, level_id, level_index, cleared, clear_ms, quit_ms, advanced_after_clear, reset_count, undo_count, first_move_ms, max_gap_ms, actions'
+export const INSERT_ROUND = `INSERT INTO rounds (${ROUND_COLUMNS}) VALUES (${Array.from({ length: 14 }, (_, i) => `$${i + 1}`).join(', ')})`
+
+export async function insertRound(db: Pick<Pool, 'query'>, body: unknown): Promise<void> {
+  await db.query(INSERT_ROUND, roundValues(body))
+}
+
+export function pagination(params: URLSearchParams): { limit: number; beforeId: string | null } {
+  const raw = params.get('limit') ?? '50'
+  const beforeId = params.get('beforeId')
+  if (!/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > 100) throw new Error('bad limit')
+  if (beforeId !== null && (!/^[1-9]\d{0,18}$/.test(beforeId) || BigInt(beforeId) > 9223372036854775807n)) throw new Error('bad cursor')
+  return { limit: Number(raw), beforeId }
+}
+
+export async function listRounds(db: Pick<Pool, 'query'>, page: ReturnType<typeof pagination>) {
+  const result = await db.query(`SELECT rounds.id::text, ${ROUND_COLUMNS}, created_at FROM rounds WHERE ($1::bigint IS NULL OR rounds.id < $1::bigint) ORDER BY rounds.id DESC LIMIT $2`, [page.beforeId, page.limit + 1])
+  const hasMore = result.rows.length > page.limit
+  const rows = result.rows.slice(0, page.limit).map(row => ({ ...row, created_at: new Date(row.created_at).toISOString() }))
+  return { rows, hasMore, nextBeforeId: hasMore ? rows.at(-1)!.id as string : null }
 }

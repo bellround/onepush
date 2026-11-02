@@ -12,14 +12,13 @@ FROM node:24-alpine
 
 WORKDIR /app
 
-# 서버는 node 내장 모듈(node:sqlite, node:http)만 쓴다 — 런타임 의존성 없음.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/package.json ./package.json
 COPY server ./server
 
-ENV PORT=80
-ENV DB_PATH=/data/rounds.db
-VOLUME /data
+ENV NODE_ENV=production
+USER node
 
-EXPOSE 80
+EXPOSE 3000
 CMD ["node", "server/index.ts"]

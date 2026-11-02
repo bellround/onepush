@@ -26,6 +26,7 @@ dist-ssr
 
 *.md
 !README.md
+!/DEPLOYMENT.md
 .git
 
 # 플레이 기록 DB

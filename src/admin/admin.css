@@ -1,0 +1,94 @@
+.ion-admin {
+  --admin-ink: #29251f;
+  --admin-muted: #6b6375;
+  --admin-line: #e7e1d9;
+  --admin-orange: #a83c08;
+  --admin-wash: #fff5eb;
+  width: 100%;
+  min-height: 100svh;
+  padding: 28px 36px 48px;
+  box-sizing: border-box;
+  text-align: left;
+  color: var(--admin-ink);
+  background: radial-gradient(ellipse at top right, #fff1e1 0, transparent 44%), #fffefa;
+  font: 16px/1.6 var(--sans);
+}
+
+.ion-admin * { box-sizing: border-box; }
+.ion-admin .admin-header, .ion-admin .admin-toolbar, .ion-admin .admin-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ion-admin .admin-header { padding-bottom: 24px; border-bottom: 1px solid var(--admin-line); }
+.ion-admin .admin-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--admin-ink); text-decoration: none; font-weight: 700; min-height: 44px; }
+.ion-admin .admin-atom { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #e8aa81; border-radius: 12px; color: var(--admin-orange); background: var(--admin-wash); font: 700 25px var(--mono); }
+.ion-admin .admin-readonly { font-size: 13px; color: var(--admin-orange); }
+.ion-admin .admin-heading { padding: 38px 0 30px; }
+.ion-admin .admin-eyebrow { font: 600 12px var(--mono); letter-spacing: .14em; color: var(--admin-orange); }
+.ion-admin h1 { margin: 10px 0 12px; font-size: clamp(30px, 5vw, 42px); line-height: 1.2; font-weight: 700; letter-spacing: -.04em; color: var(--admin-ink); }
+.ion-admin h2 { margin: 0 0 6px; font-size: 20px; line-height: 1.4; font-weight: 650; color: var(--admin-ink); }
+.ion-admin .admin-heading > p:last-child, .ion-admin .admin-login > p, .ion-admin .admin-toolbar p { color: var(--admin-muted); }
+.ion-admin button, .ion-admin input { font: inherit; }
+.ion-admin button { min-height: 44px; padding: 9px 16px; border: 1px solid var(--admin-line); border-radius: 8px; background: #fff; color: var(--admin-ink); cursor: pointer; transition: background-color 160ms, border-color 160ms; }
+.ion-admin button:hover:not(:disabled) { background: var(--admin-wash); border-color: #d9814c; }
+.ion-admin button:disabled { opacity: .5; cursor: not-allowed; }
+.ion-admin :is(button, input, a, summary, pre):focus-visible { outline: 3px solid var(--admin-orange); outline-offset: 4px; }
+.ion-admin .admin-login { max-width: 460px; padding: 28px; border: 1px solid var(--admin-line); border-top: 3px solid #ea580c; border-radius: 12px; background: #fff; box-shadow: 0 12px 36px #4b31100a; }
+.ion-admin .admin-login form { display: grid; gap: 12px; margin-top: 24px; }
+.ion-admin .admin-login label { font-weight: 650; }
+.ion-admin input { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #a59b90; border-radius: 8px; background: #fff; color: var(--admin-ink); }
+.ion-admin .admin-primary { background: var(--admin-orange); color: #fff; border-color: var(--admin-orange); font-weight: 650; }
+.ion-admin .admin-primary:hover:not(:disabled) { background: #873006; border-color: #873006; }
+.ion-admin .admin-notice { margin-top: 18px; padding: 12px; background: var(--admin-wash); border-radius: 6px; }
+.ion-admin .admin-error { margin: 12px 0; padding: 14px; border: 1px solid #ebbbb0; border-radius: 8px; background: #fff3ef; color: #922f20; overflow-wrap: anywhere; }
+.ion-admin .admin-error button { margin-top: 12px; }
+.ion-admin .admin-toolbar { padding: 20px 0; border-top: 1px solid var(--admin-line); }
+.ion-admin .admin-toolbar p { font-size: 13px; }
+.ion-admin .admin-status { min-height: 38px; color: var(--admin-muted); font-size: 14px; }
+.ion-admin .admin-records { display: grid; gap: 10px; }
+.ion-admin .admin-record { min-width: 0; border: 1px solid var(--admin-line); border-radius: 10px; background: #fff; overflow: hidden; }
+.ion-admin summary { cursor: pointer; min-height: 44px; }
+.ion-admin .admin-record > summary { display: grid; grid-template-columns: minmax(65px, .7fr) minmax(140px, 2fr) auto minmax(130px, 1.4fr) auto; gap: 16px; align-items: center; padding: 18px; list-style: none; }
+.ion-admin .admin-record > summary::-webkit-details-marker { display: none; }
+.ion-admin .admin-record > summary:hover { background: #fffbf5; }
+.ion-admin .admin-record[open] > summary { border-bottom: 1px solid var(--admin-line); background: var(--admin-wash); }
+.ion-admin .admin-record-id { font: 600 13px/1.6 var(--mono); overflow-wrap: anywhere; }
+.ion-admin .admin-record-level { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.ion-admin .admin-record-level > span, .ion-admin time { font-size: 12px; color: var(--admin-muted); }
+.ion-admin .admin-badge { justify-self: start; padding: 3px 8px; border: 1px solid var(--admin-line); border-radius: 5px; font-size: 12px; white-space: nowrap; color: #61594e; background: #f7f5f1; }
+.ion-admin .admin-badge-clear { color: #296443; background: #eef7f0; border-color: #c9e1cf; }
+.ion-admin .admin-expand { font-size: 12px; color: var(--admin-orange); white-space: nowrap; }
+.ion-admin .admin-expand::after { content: ' +'; }
+.ion-admin .admin-record[open] .admin-expand::after { content: ' −'; }
+.ion-admin .admin-record-body { padding: 20px; }
+.ion-admin .admin-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 24px; margin: 0 0 24px; }
+.ion-admin dt { font-size: 13px; font-weight: 650; }
+.ion-admin dt span { display: block; font: 11px/1.7 var(--mono); color: var(--admin-muted); overflow-wrap: anywhere; }
+.ion-admin dd { margin: 6px 0 0; font: 13px/1.7 var(--mono); overflow-wrap: anywhere; white-space: pre-wrap; }
+.ion-admin .admin-actions { border-top: 1px solid var(--admin-line); padding-top: 12px; }
+.ion-admin .admin-actions summary { padding: 8px 0; font-size: 14px; font-weight: 650; }
+.ion-admin .admin-actions summary span { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--admin-muted); }
+.ion-admin pre { max-height: 560px; overflow: auto; padding: 16px; margin: 12px 0 0; border: 1px solid var(--admin-line); border-radius: 8px; background: #f8f6f1; color: var(--admin-ink); font: 12px/1.7 var(--mono); tab-size: 2; }
+.ion-admin .admin-empty { padding: 48px 24px; border: 1px dashed var(--admin-line); border-radius: 10px; text-align: center; }
+.ion-admin .admin-empty p { color: var(--admin-muted); }
+.ion-admin .admin-pagination { display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 28px; }
+.ion-admin .admin-pagination > span { font-size: 14px; font-variant-numeric: tabular-nums; }
+.ion-admin .admin-pagination > p { flex-basis: 100%; text-align: center; font-size: 13px; color: var(--admin-muted); }
+
+@media (max-width: 760px) {
+  .ion-admin { padding: 20px 16px 36px; }
+  .ion-admin .admin-record > summary { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 16px; }
+  .ion-admin .admin-record-level { grid-column: 1; grid-row: 2; }
+  .ion-admin .admin-badge { grid-column: 2; grid-row: 1; justify-self: end; }
+  .ion-admin time { grid-column: 1; grid-row: 3; }
+  .ion-admin .admin-expand { grid-column: 2; grid-row: 3; }
+  .ion-admin .admin-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 14px; }
+  .ion-admin .admin-record-body { padding: 16px; }
+  .ion-admin .admin-login { padding: 22px; }
+}
+
+@media (max-width: 380px) {
+  .ion-admin .admin-fields { grid-template-columns: 1fr; }
+  .ion-admin .admin-readonly { font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ion-admin button { transition: none; }
+}
