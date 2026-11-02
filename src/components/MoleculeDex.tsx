@@ -4,8 +4,13 @@ import { LEVELS } from '../levels/index.ts'
 
 const PAGE_SIZE = 4
 
+// 같은 이름의 분자는 처음 나오는 레벨 하나만 도감에 싣는다. index는 progress와 비교할 레벨 순서.
+const ENTRIES = LEVELS.map((level, index) => ({ level, index })).filter(
+  ({ level, index }) => LEVELS.findIndex((l) => l.moleculeName === level.moleculeName) === index,
+)
+
 export default function MoleculeDex({ progress, onBack }: { progress: number; onBack: () => void }) {
-  const totalPages = Math.ceil(LEVELS.length / PAGE_SIZE)
+  const totalPages = Math.ceil(ENTRIES.length / PAGE_SIZE)
   const [page, setPage] = useState(0)
 
   useEffect(() => {
@@ -26,7 +31,7 @@ export default function MoleculeDex({ progress, onBack }: { progress: number; on
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onBack, totalPages])
 
-  const pageLevels = LEVELS.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const pageEntries = ENTRIES.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
 
   return (
     <section className="settings">
@@ -37,17 +42,16 @@ export default function MoleculeDex({ progress, onBack }: { progress: number; on
           ◀
         </button>
         <div className="dex-grid">
-          {pageLevels.map((level, i) => {
-            const index = page * PAGE_SIZE + i
-            return index < progress ? (
+          {pageEntries.map(({ level, index }) =>
+            index < progress ? (
               <div className="dex-card" key={level.id}>
                 <strong className="dex-symbol">{level.moleculeName}</strong>
                 {level.moleculeExplanation && <p className="dex-note">{level.moleculeExplanation}</p>}
               </div>
             ) : (
               <div className="dex-card dex-card--locked" key={level.id} />
-            )
-          })}
+            ),
+          )}
         </div>
         <button
           type="button"

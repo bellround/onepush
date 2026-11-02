@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadKeybindings } from '../game/keybindings.ts'
-import { completeTutorial, tutorialSteps } from '../game/tutorialModal.ts'
+import { completeTutorial, tutorialStepDelta, tutorialSteps } from '../game/tutorialModal.ts'
 import './TutorialModal.css'
 
 export default function TutorialModal({ open, onOpenChange, username }: { open: boolean; onOpenChange: (open: boolean) => void; username: string }) {
@@ -11,6 +11,32 @@ export default function TutorialModal({ open, onOpenChange, username }: { open: 
   const spotlight = useRef<HTMLDivElement>(null)
   const steps = tutorialSteps(bindings)
   const current = steps[step]
+  const lastStep = steps.length - 1
+
+  const move = useCallback((delta: number) => {
+    if (step + delta > lastStep) {
+      completeTutorial(username)
+      onOpenChange(false)
+    } else {
+      setStep(Math.max(0, step + delta))
+    }
+  }, [step, lastStep, username, onOpenChange])
+
+  useEffect(() => {
+    if (!open) return
+    // 패널 글자나 비활성 버튼을 눌러 포커스가 대화상자 밖으로 나가도 동작하도록 window에서 받는다.
+    function handleKeyDown(e: KeyboardEvent) {
+      e.stopPropagation()
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.target instanceof HTMLButtonElement && (e.key === 'Enter' || e.key === ' ')) return
+      const delta = tutorialStepDelta(e.code)
+      if (delta === 0) return
+      e.preventDefault()
+      if (!e.repeat) move(delta)
+    }
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [open, move])
 
   useEffect(() => {
     if (!open) return
@@ -51,20 +77,14 @@ export default function TutorialModal({ open, onOpenChange, username }: { open: 
       className="tutorial-modal"
       aria-labelledby="tutorial-title"
       onCancel={(event) => { event.preventDefault(); onOpenChange(false) }}
-      onKeyDown={(event) => event.stopPropagation()}
     >
       <div ref={spotlight} className="tutorial-spotlight" aria-hidden="true" />
       <div className="tutorial-panel">
       <div className="tutorial-topline">
         <span>게임 방법 · {step + 1} / {steps.length}</span>
         <div className="tutorial-actions">
-          <button type="button" className="btn" onClick={() => onOpenChange(false)}>닫기</button>
-          <button type="button" className="btn" disabled={step === 0} onClick={() => setStep(step - 1)}>이전</button>
-          {step < steps.length - 1 ? (
-            <button type="button" className="btn tutorial-next" onClick={() => setStep(step + 1)}>다음</button>
-          ) : (
-            <button type="button" className="btn tutorial-next" onClick={() => { completeTutorial(username); onOpenChange(false) }}>알겠어요</button>
-          )}
+          <button type="button" className="btn" disabled={step === 0} onClick={() => move(-1)}>이전</button>
+          <button type="button" className="btn tutorial-next" onClick={() => move(1)}>{step < lastStep ? '다음' : '알겠어요'}</button>
         </div>
       </div>
       <div className="tutorial-progress" aria-hidden="true">

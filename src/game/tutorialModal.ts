@@ -22,6 +22,13 @@ export function completeTutorial(username: string): void {
   }
 }
 
+// e.code 기준이라 D는 d·D·ㅇ, A는 a·A·ㅁ 입력을 모두 포함한다.
+export function tutorialStepDelta(code: string): -1 | 0 | 1 {
+  if (['Enter', 'NumpadEnter', 'Space', 'ArrowRight', 'KeyD'].includes(code)) return 1
+  if (['ArrowLeft', 'KeyA'].includes(code)) return -1
+  return 0
+}
+
 export function tutorialSteps(bindings: Record<GameAction, string>) {
   return [
     {

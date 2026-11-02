@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { DEFAULT_KEYBINDINGS } from './keybindings.ts'
-import { completeTutorial, hasCompletedTutorial, shouldStartTutorial, TUTORIAL_COMPLETED_KEY, tutorialSteps } from './tutorialModal.ts'
+import { completeTutorial, hasCompletedTutorial, shouldStartTutorial, TUTORIAL_COMPLETED_KEY, tutorialStepDelta, tutorialSteps } from './tutorialModal.ts'
 
 test('tutorial completion persists per account without inheriting legacy completion or game progress', () => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
@@ -54,6 +54,12 @@ test('blocked storage does not prevent opening or completing the tutorial', () =
     if (original) Object.defineProperty(globalThis, 'localStorage', original)
     else Reflect.deleteProperty(globalThis, 'localStorage')
   }
+})
+
+test('step keys map physical keys to next and previous', () => {
+  for (const code of ['Enter', 'NumpadEnter', 'Space', 'ArrowRight', 'KeyD']) assert.equal(tutorialStepDelta(code), 1)
+  for (const code of ['ArrowLeft', 'KeyA']) assert.equal(tutorialStepDelta(code), -1)
+  for (const code of ['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS', 'Escape', 'Tab']) assert.equal(tutorialStepDelta(code), 0)
 })
 
 test('basic steps reflect custom movement and recovery keys', () => {
