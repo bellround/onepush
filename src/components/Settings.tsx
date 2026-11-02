@@ -8,6 +8,7 @@ import {
   type GameAction,
 } from '../game/keybindings.ts'
 import { resetProgress } from '../game/progress.ts'
+import { isMuted, setMuted } from '../game/sfx.ts'
 
 const ACTIONS = Object.keys(ACTION_LABELS) as GameAction[]
 
@@ -23,6 +24,7 @@ export default function Settings({
   const [view, setView] = useState<View>('menu')
   const [bindings, setBindings] = useState(loadKeybindings)
   const [listening, setListening] = useState<GameAction | null>(null)
+  const [muted, setMutedState] = useState(isMuted)
 
   useEffect(() => {
     if (!listening) return
@@ -127,6 +129,17 @@ export default function Settings({
       <div className="settings-actions">
         <button type="button" className="btn" onClick={() => setView('controls')}>
           조작키
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            const next = !muted
+            setMutedState(next)
+            setMuted(next)
+          }}
+        >
+          효과음 : {muted ? '꺼짐' : '켜짐'}
         </button>
         <button type="button" className="btn" onClick={() => setView('data')}>
           데이터

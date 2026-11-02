@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { isCleared, pushTile } from '../game/board.ts'
 import { keyLabel, loadKeybindings } from '../game/keybindings.ts'
 import { finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
+import { moveSound, play } from '../game/sfx.ts'
 import TutorialModal from './TutorialModal.tsx'
 import { shouldStartTutorial } from '../game/tutorialModal.ts'
 import { LEVELS, loadLevel } from '../levels/index.ts'
@@ -38,7 +39,9 @@ export default function Board({
   const [run] = useState(() => startRound(LEVELS[startLevelIndex].id, startLevelIndex))
 
   useEffect(() => {
-    if (cleared) recordClear(run)
+    if (!cleared) return
+    recordClear(run)
+    play('clear')
   }, [cleared, run])
 
   useEffect(() => {
@@ -64,6 +67,7 @@ export default function Board({
         e.preventDefault()
         if (history.length === 0) return
         recordAction(run, 'undo', null, null)
+        play('undo')
         setLevel((level) => ({
           ...level,
           board: level.history[level.history.length - 1],
@@ -75,6 +79,7 @@ export default function Board({
       if (key === bindings.reset) {
         e.preventDefault()
         recordAction(run, 'reset', null, null)
+        play('reset')
         setLevel(levelState(levelIndex))
         return
       }
@@ -83,6 +88,7 @@ export default function Board({
       if (!direction) return
       e.preventDefault()
       const newBoard = pushTile(board, direction)
+      play(moveSound(board, newBoard))
       if (newBoard === board) return
       recordAction(run, 'move', direction, newBoard)
       setLevel((level) => ({ ...level, board: newBoard, history: [...level.history, board] }))
