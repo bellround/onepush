@@ -196,7 +196,9 @@ export default function Board({
                 boxSizing: 'border-box',
                 border:
                   tile.id === board.controlledId ? '2.8px solid transparent' : '2.8px solid #393939',
-                background: tile.id === board.controlledId ? '#E8C9BE' : '#fff',
+                background: `var(--el-${tile.symbol.toLowerCase()}, #fff)`,
+                backgroundClip: 'padding-box', // 검은 C에서도 조종 점선이 묻히지 않게
+                color: ['O', 'N', 'C'].includes(tile.symbol) ? '#fff' : undefined,
                 transition: 'top 120ms, left 120ms',
               }}
             >
