@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node server/index.ts",
+    "server": "node --env-file-if-exists=data/local-postgres-setup.env server/index.ts",
     "test": "node --test",
     "migrate:sqlite": "node server/import-sqlite.ts"
   },

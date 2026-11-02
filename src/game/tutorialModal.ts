@@ -2,21 +2,21 @@ import { keyLabel, type GameAction } from './keybindings.ts'
 
 export const TUTORIAL_COMPLETED_KEY = 'element-puzzle-contextual-tutorial-v2-completed'
 
-export function shouldStartTutorial(levelId: string): boolean {
-  return levelId === 'ch1-1' && !hasCompletedTutorial()
+export function shouldStartTutorial(levelId: string, username: string): boolean {
+  return levelId === 'ch1-1' && !hasCompletedTutorial(username)
 }
 
-export function hasCompletedTutorial(): boolean {
+export function hasCompletedTutorial(username: string): boolean {
   try {
-    return localStorage.getItem(TUTORIAL_COMPLETED_KEY) === 'true'
+    return localStorage.getItem(`${TUTORIAL_COMPLETED_KEY}:${username}`) === 'true'
   } catch {
     return false
   }
 }
 
-export function completeTutorial(): void {
+export function completeTutorial(username: string): void {
   try {
-    localStorage.setItem(TUTORIAL_COMPLETED_KEY, 'true')
+    localStorage.setItem(`${TUTORIAL_COMPLETED_KEY}:${username}`, 'true')
   } catch {
     // 저장이 차단되어도 안내를 닫고 게임을 계속할 수 있다.
   }

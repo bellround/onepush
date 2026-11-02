@@ -41,7 +41,7 @@ export default function Board({
   )
   const [bindings] = useState(loadKeybindings)
   const [playerUsername] = useState(username)
-  const [tutorialOpen, setTutorialOpen] = useState(() => shouldStartTutorial(LEVELS[startLevelIndex].id))
+  const [tutorialOpen, setTutorialOpen] = useState(() => shouldStartTutorial(LEVELS[startLevelIndex].id, playerUsername))
   const cleared = isCleared(board)
   const clearReported = useRef(false)
   const exiting = useRef(false)
@@ -139,7 +139,7 @@ export default function Board({
         <p>되돌리기 : {keyLabel(bindings.undo)}</p>
         <p>리셋 : {keyLabel(bindings.reset)}</p>
       </div>
-      <TutorialModal open={tutorialOpen} onOpenChange={setTutorialOpen} />
+      <TutorialModal open={tutorialOpen} onOpenChange={setTutorialOpen} username={playerUsername} />
       {/* 가로는 레벨이 바뀌어도 고정, 세로는 격자만큼만 — 아래 안내가 창 밖으로 밀리지 않게. */}
       <div className="board-viewport" style={{ width: BOARD_VIEW, height }}>
         <div

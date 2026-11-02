@@ -3,7 +3,7 @@ import { loadKeybindings } from '../game/keybindings.ts'
 import { completeTutorial, tutorialSteps } from '../game/tutorialModal.ts'
 import './TutorialModal.css'
 
-export default function TutorialModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export default function TutorialModal({ open, onOpenChange, username }: { open: boolean; onOpenChange: (open: boolean) => void; username: string }) {
   const [step, setStep] = useState(0)
   const [bindings] = useState(loadKeybindings)
   const dialog = useRef<HTMLDialogElement>(null)
@@ -63,7 +63,7 @@ export default function TutorialModal({ open, onOpenChange }: { open: boolean; o
           {step < steps.length - 1 ? (
             <button type="button" className="btn tutorial-next" onClick={() => setStep(step + 1)}>다음</button>
           ) : (
-            <button type="button" className="btn tutorial-next" onClick={() => { completeTutorial(); onOpenChange(false) }}>알겠어요</button>
+            <button type="button" className="btn tutorial-next" onClick={() => { completeTutorial(username); onOpenChange(false) }}>알겠어요</button>
           )}
         </div>
       </div>

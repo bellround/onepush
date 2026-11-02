@@ -3,9 +3,9 @@ import { test } from 'node:test'
 import { DEFAULT_KEYBINDINGS } from './keybindings.ts'
 import { completeTutorial, hasCompletedTutorial, shouldStartTutorial, TUTORIAL_COMPLETED_KEY, tutorialSteps } from './tutorialModal.ts'
 
-test('tutorial completion persists locally, independently of game progress', () => {
+test('tutorial completion persists per account without inheriting legacy completion or game progress', () => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
-  const values = new Map<string, string>([['progress', '3'], ['element-puzzle-tutorial-v1-completed', 'true']])
+  const values = new Map<string, string>([['progress', '3'], ['element-puzzle-tutorial-v1-completed', 'true'], [TUTORIAL_COMPLETED_KEY, 'true']])
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
     value: {
@@ -14,14 +14,22 @@ test('tutorial completion persists locally, independently of game progress', () 
     },
   })
   try {
-    assert.equal(hasCompletedTutorial(), false)
-    assert.equal(shouldStartTutorial('ch1-1'), true)
-    assert.equal(shouldStartTutorial('ch1-2'), false)
-    assert.equal(shouldStartTutorial('ch2-1'), false)
-    assert.equal(shouldStartTutorial(''), false)
-    completeTutorial()
-    assert.equal(hasCompletedTutorial(), true)
-    assert.equal(shouldStartTutorial('ch1-1'), false)
+    assert.equal(hasCompletedTutorial('account-a'), false)
+    assert.equal(shouldStartTutorial('ch1-1', 'account-a'), true)
+    assert.equal(shouldStartTutorial('ch1-2', 'account-a'), false)
+    assert.equal(shouldStartTutorial('ch2-1', 'account-a'), false)
+    assert.equal(shouldStartTutorial('', 'account-a'), false)
+    completeTutorial('account-a')
+    assert.equal(hasCompletedTutorial('account-a'), true)
+    assert.equal(shouldStartTutorial('ch1-1', 'account-a'), false)
+    assert.equal(hasCompletedTutorial('account-b'), false)
+    assert.equal(shouldStartTutorial('ch1-1', 'account-b'), true)
+    assert.equal(shouldStartTutorial('ch1-2', 'account-b'), false)
+    completeTutorial('account-b')
+    assert.equal(hasCompletedTutorial('account-b'), true)
+    assert.equal(hasCompletedTutorial('account-a'), true)
+    assert.equal(values.get(`${TUTORIAL_COMPLETED_KEY}:account-a`), 'true')
+    assert.equal(values.get(`${TUTORIAL_COMPLETED_KEY}:account-b`), 'true')
     assert.equal(values.get(TUTORIAL_COMPLETED_KEY), 'true')
     assert.equal(values.get('progress'), '3')
   } finally {
@@ -37,8 +45,11 @@ test('blocked storage does not prevent opening or completing the tutorial', () =
     get: () => { throw new Error('Storage blocked') },
   })
   try {
-    assert.equal(hasCompletedTutorial(), false)
-    assert.doesNotThrow(completeTutorial)
+    assert.equal(hasCompletedTutorial('account-a'), false)
+    assert.equal(shouldStartTutorial('ch1-1', 'account-a'), true)
+    assert.equal(shouldStartTutorial('ch1-2', 'account-a'), false)
+    assert.doesNotThrow(() => completeTutorial('account-a'))
+    assert.equal(hasCompletedTutorial('account-a'), false)
   } finally {
     if (original) Object.defineProperty(globalThis, 'localStorage', original)
     else Reflect.deleteProperty(globalThis, 'localStorage')

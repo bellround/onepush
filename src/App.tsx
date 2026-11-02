@@ -145,9 +145,9 @@ function App() {
     }
   }
 
-  const saveNotice = save && (
+  const saveNotice = save && save.status !== 'saved' && (
     <div className="account-save" onKeyDown={event => event.stopPropagation()}>
-      <span role="status">{save.status === 'pending' ? '진행 상황 저장 중…' : save.status === 'saved' ? '진행 상황이 저장되었습니다.' : `${save.error} 저장되지 않았습니다.`}</span>
+      <span role="status">{save.status === 'pending' ? '진행 상황 저장 중…' : `${save.error} 저장되지 않았습니다.`}</span>
       {save.status === 'error' && <>
         {save.reauthenticate ? <form className="account-form" onSubmit={recover} aria-busy={busy}>
           <p>진행 상황을 저장하려면 원래 계정으로 다시 로그인해 주세요.</p>
