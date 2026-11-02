@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { isCleared, pushTile } from '../game/board.ts'
 import { keyLabel, loadKeybindings } from '../game/keybindings.ts'
 import { finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
-import { tutorialHint } from '../game/tutorial.ts'
+import TutorialModal from './TutorialModal.tsx'
+import { shouldStartTutorial } from '../game/tutorialModal.ts'
 import { LEVELS, loadLevel } from '../levels/index.ts'
 import type { Board as BoardState, Direction } from '../game/types.ts'
 
@@ -30,6 +31,7 @@ export default function Board({
     levelState(startLevelIndex),
   )
   const [bindings] = useState(loadKeybindings)
+  const [tutorialOpen, setTutorialOpen] = useState(() => shouldStartTutorial(LEVELS[startLevelIndex].id))
   const cleared = isCleared(board)
 
   // 리셋해도 같은 라운드다 — 이 컴포넌트가 살아있는 동안 하나의 기록만 쌓인다.
@@ -41,6 +43,7 @@ export default function Board({
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (tutorialOpen) return
       const key = e.code
 
       if (key === bindings.exit) {
@@ -86,7 +89,7 @@ export default function Board({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [bindings, board, cleared, history, levelIndex, onExit, run])
+  }, [bindings, board, cleared, history, levelIndex, onExit, run, tutorialOpen])
 
   const cellSize = Math.floor(BOARD_VIEW / Math.max(board.cols, board.rows))
   const atomSize = Math.round((cellSize - GRID_LINE) * 0.8)
@@ -103,14 +106,16 @@ export default function Board({
       <p className="board-header">
         레벨: <strong>{name}</strong>
       </p>
-      <div className="board-controls-hint">
+      <div className="board-controls-hint" data-tutorial="recovery">
         <p>되돌리기 : {keyLabel(bindings.undo)}</p>
         <p>리셋 : {keyLabel(bindings.reset)}</p>
       </div>
+      <TutorialModal open={tutorialOpen} onOpenChange={setTutorialOpen} />
       {/* 가로는 레벨이 바뀌어도 고정, 세로는 격자만큼만 — 아래 안내가 창 밖으로 밀리지 않게. */}
       <div className="board-viewport" style={{ width: BOARD_VIEW, height }}>
         <div
           className="board-grid"
+          data-tutorial="goal"
           style={{
             width,
             height,
@@ -182,6 +187,7 @@ export default function Board({
           {board.tiles.map((tile) => (
             <div
               key={tile.id}
+              data-tutorial={tile.id === board.controlledId ? 'player' : undefined}
               style={{
                 position: 'absolute',
                 top: center(tile.row, tile.col).y - atomSize / 2,
@@ -214,11 +220,6 @@ export default function Board({
           ))}
         </div>
       </div>
-      {LEVELS[levelIndex].tutorial && !cleared && (
-        <p className="board-tutorial">
-          {tutorialHint(history.length, board.bonds.length, bindings)}
-        </p>
-      )}
       {cleared && (
         <div className="clear-popup">
           <div className="clear-popup-card">
