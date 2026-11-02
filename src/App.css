@@ -28,6 +28,51 @@
   justify-content: center;
 }
 
+.account-entry-hint {
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.account-form {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 360px);
+  text-align: left;
+}
+
+.account-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font: 400 16px/1.5 var(--sans);
+  background: var(--transparent);
+  color: var(--text-h);
+}
+
+.account-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.account-form .btn { border: 1px solid var(--border); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled:hover { background: var(--transparent); }
+
+.account-identity, .account-save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+
 /* 전자가 핵 주위를 도는 모습 — 원자가전자 결합이라는 핵심 메커닉을 그대로 로고로 사용 */
 .menu-orbit {
   position: relative;
@@ -375,6 +420,10 @@
   padding: 24px 32px;
   max-width: 360px;
   text-align: center;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  width: min(100%, 424px);
 }
 .clear-popup-hint {
   color: var(--text);

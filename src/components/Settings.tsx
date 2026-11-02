@@ -7,7 +7,6 @@ import {
   saveKeybindings,
   type GameAction,
 } from '../game/keybindings.ts'
-import { resetProgress } from '../game/progress.ts'
 import { isMuted, setMuted } from '../game/sfx.ts'
 
 const ACTIONS = Object.keys(ACTION_LABELS) as GameAction[]
@@ -16,10 +15,8 @@ type View = 'menu' | 'controls' | 'data'
 
 export default function Settings({
   onBack,
-  onResetProgress,
 }: {
   onBack: () => void
-  onResetProgress: () => void
 }) {
   const [view, setView] = useState<View>('menu')
   const [bindings, setBindings] = useState(loadKeybindings)
@@ -100,21 +97,9 @@ export default function Settings({
       <section className="settings">
         <div>
           <h1>데이터</h1>
-          <p className="menu-tagline">저장된 진행 상황(어디까지 깼는지)을 초기화합니다.</p>
+          <p className="menu-tagline">진행 상황은 계정에 저장됩니다. 완료한 레벨은 레벨 선택에서 다시 플레이할 수 있습니다.</p>
         </div>
         <div className="settings-actions">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              if (window.confirm('진행 데이터를 초기화할까요? 첫 레벨부터 다시 시작합니다.')) {
-                resetProgress()
-                onResetProgress()
-              }
-            }}
-          >
-            진행 데이터 초기화
-          </button>
           <button type="button" className="btn" onClick={() => setView('menu')}>
             뒤로
           </button>

@@ -64,7 +64,7 @@ test('actual PostgreSQL schema, all fields and cursor', { skip: !process.env.TES
     assert.equal(page.hasMore, true)
     const row = page.rows[0]
     assert.equal(typeof row.id, 'string')
-    assert.deepEqual(Object.keys(row).sort(), ['id', 'session_id', 'chapter', 'round', 'level_id', 'level_index', 'cleared', 'clear_ms', 'quit_ms', 'advanced_after_clear', 'reset_count', 'undo_count', 'first_move_ms', 'max_gap_ms', 'actions', 'created_at'].sort())
+    assert.deepEqual(Object.keys(row).sort(), ['id', 'session_id', 'chapter', 'round', 'level_id', 'level_index', 'cleared', 'clear_ms', 'quit_ms', 'advanced_after_clear', 'reset_count', 'undo_count', 'first_move_ms', 'max_gap_ms', 'actions', 'created_at', 'username'].sort())
     assert.deepEqual(row.actions, VALID.actions)
     assert.equal(row.cleared, true)
     assert.equal(row.round, 4)

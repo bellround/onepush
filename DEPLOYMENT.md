@@ -42,7 +42,7 @@ token only in React memory, never cookies/storage/URLs/logs. List and logout sen
 Every initial admin visit/refresh requires login. Logout POST returns 204 and revokes
 the token; missing/expired/revoked bearer tokens return 401. Admin HTML/API responses
 are no-store with CSP frame-ancestors 'none'. Bad origin returns 403; session capacity
-returns 503. Normal game telemetry needs no auth. No admin write/SQL endpoint exists.
+returns 503. Normal game telemetry requires player auth. No admin write/SQL endpoint exists.
 
 GET rounds accepts `limit` (default 50, 1..100) and optional positive decimal-string
 `beforeId`. Response is `{rows, nextBeforeId: string|null, hasMore: boolean}`.
@@ -51,6 +51,55 @@ metrics are numbers or null, actions preserve complete objects (including boards
 and created_at is an ISO UTC timestamp. Pagination orders descending IDs and uses
 limit+1. POST telemetry returns 204, invalid input 400, oversized input 413,
 and database failures 503. Unknown API routes return JSON 404.
+
+## Player accounts and progress
+
+`src/game/account.ts` exports `PlayerAccount = {username: string, progress: number}`,
+`enterAccount(username, password)`, `getAccount()`, `logoutAccount()`, and
+`saveAccountProgress(levelId, expectedUsername)`. Account-returning calls resolve to PlayerAccount;
+getAccount returns null only on 401, logout resolves void. Failures throw user-safe
+Korean AccountErrors with a numeric status (0 for network failure). There is no anonymous local-progress import.
+
+Endpoints are POST `/api/account/enter` with `{username,password}`, GET
+`/api/account`, POST `/api/account/logout`, POST `/api/account/progress` with
+`{levelId,expectedUsername}`. New usernames register automatically; existing names require the
+original password. Usernames are case-sensitive Unicode letters/numbers, `_`, `-`,
+1..32 characters; passwords are 1..128 characters and at most 512 UTF-8 bytes.
+Passwords use random salts and asynchronous scrypt (N=16384, r=8, p=1).
+
+Player sessions are separate from admin bearer auth. Only SHA-256 token hashes
+are persisted in PostgreSQL; cookies are HttpOnly, SameSite=Strict, scoped to
+BASE_PATH, expire after 30 days, and are Secure in production. Production requires
+HTTPS. Logout revokes the database session; login replaces the current session.
+Expired rows are removed on login. Preserve Cookie/Set-Cookie and Origin through
+the proxy. Mutations require the configured PUBLIC_ORIGIN (origin only, no path).
+Never log passwords or cookies. Use trusted, isolated hosting origins: path scopes
+do not defend against malicious same-origin applications.
+
+Login is limited to 10 attempts/minute per socket IP, with 4 simultaneous password
+operations per process. Forwarded IP headers are not trusted; behind a shared proxy
+this deliberately conservative limit can affect multiple users. Configure trusted
+ingress throttling for larger deployments. Admin sessions remain memory-only.
+
+Progress is the next unlocked zero-based stage index: 0 initially, catalog length
+when all stages are cleared. A conditional atomic SQL update accepts only an
+unlocked known level and never decreases progress. This records client-reported
+clears, not a server-verified puzzle solution. Vite generates dist/level-catalog.json
+from the same sorted chapter files as the client; Docker already copies dist.
+Development/tests load the source catalog directly. Keep catalog order stable when
+deploying because stored progress is positional.
+
+New telemetry requires the player cookie; username is derived server-side, never
+from posted identity. Admin list/detail row payloads and export include nullable
+username; old records/imports remain anonymous. Legacy ROUND_COLUMNS and import
+hashes are unchanged. Exports exclude player credentials and session tables;
+use PostgreSQL backups to preserve accounts and progress.
+
+Progress and telemetry requests must include the username captured when play began
+as `expectedUsername`. Missing values return 400; a different session username
+returns 409 before any writes. This field is only a consistency guard, never the
+authoritative owner. `sendRound(record, expectedUsername)` returns Promise<void>,
+aborts fetch after five seconds, and suppresses telemetry failures.
 
 ## JSON database export
 

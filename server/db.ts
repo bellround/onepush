@@ -28,6 +28,19 @@ export const SCHEMA = `
     round_id BIGINT NOT NULL REFERENCES rounds(id),
     PRIMARY KEY (source, source_id)
   );
+  CREATE TABLE IF NOT EXISTS players (
+    id BIGSERIAL PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0)
+  );
+  CREATE TABLE IF NOT EXISTS player_sessions (
+    token_hash TEXT PRIMARY KEY,
+    player_id BIGINT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS player_sessions_expiry ON player_sessions(expires_at);
+  ALTER TABLE rounds ADD COLUMN IF NOT EXISTS username TEXT;
 `
 
 export async function openDb(connectionString = process.env.DATABASE_URL): Promise<Pool> {
@@ -120,7 +133,7 @@ export function pagination(params: URLSearchParams): { limit: number; beforeId: 
 }
 
 export async function listRounds(db: Pick<Pool, 'query'>, page: ReturnType<typeof pagination>) {
-  const result = await db.query(`SELECT rounds.id::text, ${ROUND_COLUMNS}, created_at FROM rounds WHERE ($1::bigint IS NULL OR rounds.id < $1::bigint) ORDER BY rounds.id DESC LIMIT $2`, [page.beforeId, page.limit + 1])
+  const result = await db.query(`SELECT rounds.id::text, ${ROUND_COLUMNS}, username, created_at FROM rounds WHERE ($1::bigint IS NULL OR rounds.id < $1::bigint) ORDER BY rounds.id DESC LIMIT $2`, [page.beforeId, page.limit + 1])
   const hasMore = result.rows.length > page.limit
   const rows = result.rows.slice(0, page.limit).map(row => ({ ...row, created_at: new Date(row.created_at).toISOString() }))
   return { rows, hasMore, nextBeforeId: hasMore ? rows.at(-1)!.id as string : null }

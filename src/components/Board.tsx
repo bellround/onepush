@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { isCleared, pushTile } from '../game/board.ts'
 import { keyLabel, loadKeybindings } from '../game/keybindings.ts'
 import { finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
@@ -24,42 +24,63 @@ function levelState(index: number) {
 export default function Board({
   startLevelIndex,
   onExit,
+  onClear,
+  saveNotice,
+  username,
+  accountBusy,
 }: {
   startLevelIndex: number
   onExit: (levelIndex: number, cleared: boolean) => void
+  onClear: (levelIndex: number, expectedUsername: string) => void
+  saveNotice: ReactNode
+  username: string
+  accountBusy: boolean
 }) {
   const [{ levelIndex, board, history, name, targetMolecule, explanation }, setLevel] = useState(() =>
     levelState(startLevelIndex),
   )
   const [bindings] = useState(loadKeybindings)
+  const [playerUsername] = useState(username)
   const [tutorialOpen, setTutorialOpen] = useState(() => shouldStartTutorial(LEVELS[startLevelIndex].id))
   const cleared = isCleared(board)
+  const clearReported = useRef(false)
+  const exiting = useRef(false)
+  const [exitPending, setExitPending] = useState(false)
 
   // 리셋해도 같은 라운드다 — 이 컴포넌트가 살아있는 동안 하나의 기록만 쌓인다.
   const [run] = useState(() => startRound(LEVELS[startLevelIndex].id, startLevelIndex))
 
   useEffect(() => {
-    if (!cleared) return
+    if (!cleared || clearReported.current) return
+    clearReported.current = true
     recordClear(run)
     play('clear')
-  }, [cleared, run])
+    onClear(levelIndex, playerUsername)
+  }, [cleared, run, onClear, levelIndex, playerUsername])
+
+  const exit = useCallback(async (advanced: boolean) => {
+    if (exiting.current || accountBusy) return
+    exiting.current = true
+    setExitPending(true)
+    await sendRound(finishRound(run, advanced), playerUsername)
+    onExit(levelIndex, advanced)
+  }, [run, onExit, levelIndex, playerUsername, accountBusy])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (tutorialOpen) return
+      if (tutorialOpen || exiting.current || accountBusy) return
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea, button, form')) return
       const key = e.code
 
       if (key === bindings.exit) {
         e.preventDefault()
-        sendRound(finishRound(run, false))
-        onExit(levelIndex, false)
+        void exit(false)
         return
       }
 
       if (cleared && key === bindings.select) {
         e.preventDefault()
-        sendRound(finishRound(run, true))
-        onExit(levelIndex, true)
+        void exit(true)
         return
       }
 
@@ -95,7 +116,7 @@ export default function Board({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [bindings, board, cleared, history, levelIndex, onExit, run, tutorialOpen])
+  }, [bindings, board, cleared, history, levelIndex, exit, run, tutorialOpen, accountBusy])
 
   const cellSize = Math.floor(BOARD_VIEW / Math.max(board.cols, board.rows))
   const atomSize = Math.round((cellSize - GRID_LINE) * 0.8)
@@ -112,6 +133,8 @@ export default function Board({
       <p className="board-header">
         레벨: <strong>{name}</strong>
       </p>
+      {!cleared && <div inert={exitPending}>{saveNotice}</div>}
+      {exitPending && <p role="status">플레이 기록 전송 중…</p>}
       <div className="board-controls-hint" data-tutorial="recovery">
         <p>되돌리기 : {keyLabel(bindings.undo)}</p>
         <p>리셋 : {keyLabel(bindings.reset)}</p>
@@ -231,6 +254,7 @@ export default function Board({
           <div className="clear-popup-card">
             <h2>클리어! {targetMolecule}</h2>
             <p>{explanation ? explanation : '(설명 준비 중)'}</p>
+            <div inert={exitPending}>{saveNotice}</div>
             <p className="clear-popup-hint">
               선택 키({keyLabel(bindings.select)}) : 레벨 선택 / 종료 키({keyLabel(bindings.exit)}) : 처음 화면
             </p>

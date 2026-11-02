@@ -6,6 +6,7 @@ import './admin.css'
 type Round = {
   id: string
   session_id: string
+  username: string | null
   chapter: string
   round: number
   level_id: string
@@ -25,7 +26,7 @@ type Round = {
 type Page = { rows: Round[]; nextBeforeId: string | null; hasMore: boolean }
 type Cursor = string | null
 const labels: Record<keyof Omit<Round, 'actions'>, string> = {
-  id: '기록 ID', session_id: '세션 ID', chapter: '챕터', round: '라운드',
+  id: '기록 ID', session_id: '세션 ID', username: '아이디', chapter: '챕터', round: '라운드',
   level_id: '레벨 ID', level_index: '레벨 인덱스', cleared: '클리어 여부',
   clear_ms: '클리어 시간 (ms)', quit_ms: '종료 시간 (ms)',
   advanced_after_clear: '클리어 후 다음 진행', reset_count: '초기화 횟수',
@@ -39,7 +40,7 @@ function RecordDetails({ row }: { row: Round }) {
     <details className="admin-record">
       <summary>
         <span className="admin-record-id">#{row.id}</span>
-        <span className="admin-record-level"><strong>{row.chapter} / {row.level_id}</strong><span>라운드 {row.round} · 레벨 인덱스 {row.level_index}</span></span>
+        <span className="admin-record-level"><strong>{row.chapter} / {row.level_id}</strong><span>{row.username ?? '익명'} · 라운드 {row.round} · 레벨 인덱스 {row.level_index}</span></span>
         <span className={`admin-badge${row.cleared ? ' admin-badge-clear' : ''}`}>{row.cleared ? '클리어' : '미클리어'}</span>
         <time dateTime={row.created_at}>{new Date(row.created_at).toLocaleString('ko-KR')}</time>
         <span className="admin-expand">상세 보기</span>
@@ -47,7 +48,7 @@ function RecordDetails({ row }: { row: Round }) {
       <div className="admin-record-body">
         <dl className="admin-fields">
           {Object.entries(labels).map(([key, label]) => {
-            const value = row[key as keyof typeof labels]
+            const value = key === 'username' ? row.username ?? '익명' : row[key as keyof typeof labels]
             return <div key={key}><dt>{label}<span>{key}</span></dt><dd>{value === null ? 'null (기록 없음)' : typeof value === 'boolean' ? `${value ? '예' : '아니요'} (${value})` : String(value)}</dd></div>
           })}
         </dl>

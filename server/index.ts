@@ -4,9 +4,11 @@ import { extname, join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Pool } from 'pg'
-import { exportDb, INSERT_ROUND, listRounds, openDb, pagination, roundValues } from './db.ts'
+import { exportDb, ROUND_COLUMNS, listRounds, openDb, pagination, roundValues } from './db.ts'
 import { createAuth, sameOrigin } from './auth.ts'
 import { injectConfig, normalizeBase } from './platform.ts'
+import { loadCatalog } from './catalog.ts'
+import { createPlayerLimiter, credentials, enterPlayer, getPlayer, newSession, playerCookie, revokeSession, saveProgress } from './player.ts'
 
 const DIST = resolve(import.meta.dirname, '../dist')
 const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' }
@@ -28,9 +30,13 @@ function json(res: ServerResponse, status: number, value: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(value))
 }
 
-export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string; password: string; production?: boolean; publicOrigin?: string; dist?: string }) {
+export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string; password: string; production?: boolean; publicOrigin?: string; dist?: string; levelIds?: string[] }) {
   const base = normalizeBase(options.basePath)
   const auth = createAuth(options.password)
+  const limiter = createPlayerLimiter()
+  const catalog = options.levelIds ? Promise.resolve(options.levelIds) : loadCatalog()
+  // Observe startup catalog errors even before the first progress request.
+  void catalog.catch(() => {})
   if (options.production && !options.publicOrigin) throw new Error('PUBLIC_ORIGIN required in production')
   const dist = options.dist ?? DIST
   return createServer((req, res) => {
@@ -44,6 +50,51 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
         res.setHeader('X-Frame-Options', 'DENY')
       }
       if (path === '/api' || path.startsWith('/api/')) {
+        if (path.startsWith('/api/account')) {
+          res.setHeader('Cache-Control', 'no-store')
+          if (req.method !== 'GET' && !sameOrigin(req, options.publicOrigin)) return json(res, 403, { error: '요청 출처를 확인할 수 없습니다.' })
+          const secure = !!options.production || options.publicOrigin?.startsWith('https:') === true
+          try {
+            if (path === '/api/account/enter' && req.method === 'POST') {
+              let input
+              try { input = credentials(await readBody(req, 4096)) } catch { return json(res, 400, { error: '이름은 문자·숫자·밑줄·하이픈 1~32자, 비밀번호는 1~128자로 입력해 주세요.' }) }
+              if (!limiter.acquire(req.socket.remoteAddress ?? 'unknown')) return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' })
+              try {
+                const player = await enterPlayer(db, input.username, input.password)
+                if (!player) return json(res, 401, { error: '비밀번호가 올바르지 않습니다.' })
+                await revokeSession(db, req)
+                const token = await newSession(db, player)
+                res.setHeader('Set-Cookie', playerCookie(token, base, secure))
+                return json(res, 200, { username: player.username, progress: player.progress })
+              } finally { limiter.release() }
+            }
+            if (path === '/api/account/logout' && req.method === 'POST') {
+              await revokeSession(db, req)
+              res.setHeader('Set-Cookie', playerCookie('', base, secure, true))
+              return res.writeHead(204).end()
+            }
+            if (path === '/api/account' && req.method === 'GET') {
+              const player = await getPlayer(db, req)
+              return player ? json(res, 200, { username: player.username, progress: player.progress }) : json(res, 401, { error: '로그인이 필요합니다.' })
+            }
+            if (path === '/api/account/progress' && req.method === 'POST') {
+              const player = await getPlayer(db, req)
+              if (!player) return json(res, 401, { error: '다시 로그인해 주세요.' })
+              let body
+              try { body = await readBody(req, 4096) } catch { return json(res, 400, { error: '올바르지 않은 스테이지입니다.' }) }
+              const expectedUsername = (body as { expectedUsername?: unknown } | null)?.expectedUsername
+              if (typeof expectedUsername !== 'string' || !expectedUsername) return json(res, 400, { error: '계정 확인 정보가 필요합니다.' })
+              if (expectedUsername !== player.username) return json(res, 409, { error: '계정이 변경되었습니다. 다시 로그인해 주세요.' })
+              const id = (body as { levelId?: unknown } | null)?.levelId
+              const index = typeof id === 'string' ? (await catalog).indexOf(id) : -1
+              if (index < 0) return json(res, 400, { error: '올바르지 않은 스테이지입니다.' })
+              const saved = await saveProgress(db, player, index)
+              if (!saved) return json(res, 409, { error: '아직 열리지 않은 스테이지입니다.' })
+              return json(res, 200, { username: saved.username, progress: saved.progress })
+            }
+          } catch { return json(res, 503, { error: '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.' }) }
+          return json(res, 404, { error: '요청을 찾을 수 없습니다.' })
+        }
         if (path.startsWith('/api/admin/')) {
           res.setHeader('Cache-Control', 'no-store')
           if (!sameOrigin(req, options.publicOrigin)) return json(res, 403, { error: 'Forbidden' })
@@ -74,9 +125,19 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
           }
         }
         if (path === '/api/rounds' && req.method === 'POST') {
+          if (!sameOrigin(req, options.publicOrigin)) return json(res, 403, { error: 'Forbidden' })
+          let player
+          try { player = await getPlayer(db, req) } catch { return json(res, 503, { error: 'Database unavailable' }) }
+          if (!player) return json(res, 401, { error: 'Unauthorized' })
           let values
-          try { values = roundValues(await readBody(req)) } catch (error) { return json(res, error instanceof RangeError ? 413 : 400, { error: 'Invalid round' }) }
-          try { await db.query(INSERT_ROUND, values) } catch { return json(res, 503, { error: 'Database unavailable' }) }
+          try {
+            const body = await readBody(req)
+            const expectedUsername = (body as { expectedUsername?: unknown } | null)?.expectedUsername
+            if (typeof expectedUsername !== 'string' || !expectedUsername) return json(res, 400, { error: 'Expected account required' })
+            if (expectedUsername !== player.username) return json(res, 409, { error: 'Account changed' })
+            values = roundValues(body)
+          } catch (error) { return json(res, error instanceof RangeError ? 413 : 400, { error: 'Invalid round' }) }
+          try { await db.query(`INSERT INTO rounds (${ROUND_COLUMNS}, username) VALUES (${Array.from({ length: 15 }, (_, i) => `$${i + 1}`).join(', ')})`, [...values, player.username]) } catch { return json(res, 503, { error: 'Database unavailable' }) }
           return res.writeHead(204).end()
         }
         return json(res, 404, { error: 'Not found' })

@@ -71,15 +71,16 @@ test('base config is safe and stable on nested routes', () => {
 
 test('valid telemetry is asynchronous and database failures return 503', async () => {
   let failing = false
-  const db = { query: async () => { if (failing) throw new Error('private database error'); return { rows: [] } } } as unknown as Pool
+  const db = { query: async () => { if (failing) throw new Error('private database error'); return { rows: [{ id: '1', username: 'player', progress: 0 }] } } } as unknown as Pool
   const server = createApp(db, { password: 'test-only' })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const root = `http://127.0.0.1:${(server.address() as { port: number }).port}`
-  const body = JSON.stringify({ sessionId: 'test', levelId: 'ch1-1', levelIndex: 0, cleared: false, advancedAfterClear: false, resetCount: 0, undoCount: 0, actions: [] })
+  const body = JSON.stringify({ expectedUsername: 'player', sessionId: 'test', levelId: 'ch1-1', levelIndex: 0, cleared: false, advancedAfterClear: false, resetCount: 0, undoCount: 0, actions: [] })
+  const headers = { origin: root, cookie: `ion_player=${'a'.repeat(64)}` }
   try {
-    assert.equal((await fetch(`${root}/api/rounds`, { method: 'POST', body })).status, 204)
+    assert.equal((await fetch(`${root}/api/rounds`, { method: 'POST', body, headers })).status, 204)
     failing = true
-    const response = await fetch(`${root}/api/rounds`, { method: 'POST', body })
+    const response = await fetch(`${root}/api/rounds`, { method: 'POST', body, headers })
     assert.equal(response.status, 503)
     assert.deepEqual(await response.json(), { error: 'Database unavailable' })
   } finally { await new Promise<void>(resolve => server.close(() => resolve())) }
@@ -116,8 +117,8 @@ test('admin auth, origin, logout, cursor, errors and stripped routes', async () 
     assert.equal((await fetch(`${root}/api/admin/logout`, { method: 'POST', headers: { origin, authorization } })).status, 204)
     assert.equal((await fetch(`${root}/api/admin/rounds`, { headers: { authorization } })).status, 401)
     assert.equal((await fetch(`${root}/api/missing`)).status, 404)
-    assert.equal((await fetch(`${root}/api/rounds`, { method: 'POST', body: '{}' })).status, 400)
-    assert.equal((await fetch(`${root}/api/rounds`, { method: 'POST', body: 'x'.repeat(2_000_001) })).status, 413)
+    assert.equal((await fetch(`${root}/api/rounds`, { method: 'POST', headers: { origin, cookie: `ion_player=${'a'.repeat(64)}` }, body: '{}' })).status, 400)
+    assert.equal((await fetch(`${root}/api/rounds`, { method: 'POST', headers: { origin, cookie: `ion_player=${'a'.repeat(64)}` }, body: 'x'.repeat(2_000_001) })).status, 413)
     for (let i = 0; i < 12; i++) assert.equal((await fetch(`${root}/api/admin/login`, { method: 'POST', headers: { origin }, body: '{"password":"wrong"}' })).status, 401)
     assert.equal((await fetch(`${root}/api/admin/login`, { method: 'POST', headers: { origin }, body: '{"password":"test-only"}' })).status, 200)
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())) }

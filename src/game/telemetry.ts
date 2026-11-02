@@ -90,11 +90,13 @@ function sessionId(): string {
 }
 
 // 전송 실패는 무시한다 — 기록 때문에 게임이 멈추면 안 된다.
-export function sendRound(record: RoundRecord): void {
-  fetch(apiUrl('/rounds'), {
+export async function sendRound(record: RoundRecord, expectedUsername: string): Promise<void> {
+  await fetch(apiUrl('/rounds'), {
     method: 'POST',
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...record, sessionId: sessionId() }),
+    body: JSON.stringify({ ...record, sessionId: sessionId(), expectedUsername }),
+    signal: AbortSignal.timeout(5000),
     keepalive: true,
   }).catch(() => {})
 }

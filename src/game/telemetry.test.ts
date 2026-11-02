@@ -1,7 +1,34 @@
 /// <reference types="node" />
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { finishRound, recordAction, recordClear, startRound } from './telemetry.ts'
+import { finishRound, recordAction, recordClear, sendRound, startRound } from './telemetry.ts'
+
+test('telemetry sends captured identity and releases caller on timeout or failure', async () => {
+  const originalFetch = globalThis.fetch
+  const originalTimeout = AbortSignal.timeout
+  let requestedTimeout = 0
+  AbortSignal.timeout = (milliseconds: number) => {
+    requestedTimeout = milliseconds
+    return originalTimeout(10)
+  }
+  const keepAlive = setTimeout(() => {}, 1000)
+  try {
+    globalThis.fetch = (async (_url, init) => {
+      assert.equal(JSON.parse(init!.body as string).expectedUsername, 'captured-player')
+      assert.equal(init!.credentials, 'same-origin')
+      await new Promise((_resolve, reject) => init!.signal!.addEventListener('abort', () => reject(new Error('timeout')), { once: true }))
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+    await sendRound(finishRound(startRound('ch1-1', 0), false), 'captured-player')
+    assert.equal(requestedTimeout, 5000)
+    globalThis.fetch = async () => { throw new Error('offline') }
+    await sendRound(finishRound(startRound('ch1-1', 0), false), 'captured-player')
+  } finally {
+    clearTimeout(keepAlive)
+    globalThis.fetch = originalFetch
+    AbortSignal.timeout = originalTimeout
+  }
+})
 
 test('클리어한 라운드 — 첫 수 시각, 최대 간격, 횟수 집계', () => {
   const run = startRound('ch1-4', 3, 1000)
