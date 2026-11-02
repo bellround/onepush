@@ -1,0 +1,66 @@
+/* 공통 색상: 화면 전반에서 공유하는 기본 팔레트입니다. */
+:root {
+  --text: #6b6375; /* 본문과 보조 안내 */
+  --text-h: #08060d; /* 제목과 주요 글자 */
+  --bg: #fff; /* 기본 화면 배경 */
+  --border: #e5e4e7; /* 구분선과 카드 테두리 */
+  --code-bg: #f4f3ec; /* 코드 배경 */
+  --accent: #ea580c; /* 버튼 호버와 강조 표시 */
+  --accent-bg: rgba(234, 88, 12, 0.1); /* 옅은 강조 배경 */
+  --accent-border: rgba(234, 88, 12, 0.5); /* 반투명 강조 테두리 */
+  --social-bg: rgba(244, 243, 236, 0.5); /* 소셜 영역 배경 */
+  --transparent: transparent; /* 배경과 테두리의 완전 투명색 */
+  --surface: #fff; /* 카드와 입력 요소의 흰 배경 */
+  --text-on-color: #fff; /* 유색 배경 위 흰 글자 */
+  --shadow-color: rgba(0, 0, 0, 0.1); /* 공통 그림자의 주 음영 */
+  --shadow-soft-color: rgba(0, 0, 0, 0.05); /* 공통 그림자의 보조 음영 */
+  --shadow:
+    var(--shadow-color) 0 10px 15px -3px, var(--shadow-soft-color) 0 4px 6px -2px;
+
+  /* 게임 전용: 원소, 격자, 결합 표시의 색상입니다. */
+  --el-h: #39b6ff; /* 수소 타일과 전자 (글자색은 기존 상속 유지) */
+  --el-o: #f45050; /* 산소 타일과 전자 */
+  --el-n: #aa5c17; /* 질소 타일과 전자 */
+  --el-c: #5a5656; /* 탄소 타일과 전자 */
+  --wall: #6b6375; /* 이동을 막는 벽 */
+  --atom-border: #393939; /* 비조종 원자 테두리와 메뉴 수소 전자 외곽선 */
+  --atom-fallback: #fff; /* 원소 색상이 없을 때의 타일 배경 */
+  --board-bg: #f4f3ec; /* 격자 칸 배경 */
+  --board-grid-line: #fff; /* 가로·세로 격자선 */
+  --bond-line: #000; /* 원자 사이 결합선 */
+  --atom-ring: #000; /* 조종 중인 원자의 점선 */
+  --bonder: #6b6375; /* 결합 차수 + 표시와 테두리 */
+  --dex-note: #000; /* 도감 설명 글자 */
+  --clear-backdrop: rgba(0, 0, 0, 0.35); /* 클리어 팝업 뒤 음영 */
+
+  /* 튜토리얼 전용: 패널 그림자와 강조 영역 밖 음영입니다. */
+  --tutorial-shadow: #08060d33; /* 안내 패널 그림자 */
+  --tutorial-backdrop: #08060d99; /* 스포트라이트 바깥 음영 */
+}
+
+/* 관리자 전용: 기존 .ion-admin 범위를 유지해 게임 화면에 영향을 주지 않습니다. */
+.ion-admin {
+  --admin-ink: #29251f; /* 제목과 기본 글자 */
+  --admin-muted: #6b6375; /* 보조 설명과 상태 글자 */
+  --admin-line: #e7e1d9; /* 구분선과 기본 테두리 */
+  --admin-orange: #a83c08; /* 주요 버튼과 강조 글자 */
+  --admin-wash: #fff5eb; /* 강조 영역의 옅은 배경 */
+  --admin-bg: #fffefa; /* 관리자 화면 기본 배경 */
+  --admin-glow: #fff1e1; /* 우측 상단 배경 그라데이션 */
+  --admin-atom-border: #e8aa81; /* 브랜드 원자 아이콘 테두리 */
+  --admin-hover-border: #d9814c; /* 일반 버튼 호버 테두리 */
+  --admin-login-accent: #ea580c; /* 로그인 카드 상단 강조선 */
+  --admin-login-shadow: #4b31100a; /* 로그인 카드 그림자 */
+  --admin-input-border: #a59b90; /* 입력란 테두리 */
+  --admin-primary-hover: #873006; /* 주요 버튼 호버 배경과 테두리 */
+  --admin-error-border: #ebbbb0; /* 오류 안내 테두리 */
+  --admin-error-bg: #fff3ef; /* 오류 안내 배경 */
+  --admin-error-text: #922f20; /* 오류 안내 글자 */
+  --admin-record-hover: #fffbf5; /* 기록 행 호버 배경 */
+  --admin-badge-text: #61594e; /* 기본 상태 배지 글자 */
+  --admin-badge-bg: #f7f5f1; /* 기본 상태 배지 배경 */
+  --admin-clear-text: #296443; /* 클리어 배지 글자 */
+  --admin-clear-bg: #eef7f0; /* 클리어 배지 배경 */
+  --admin-clear-border: #c9e1cf; /* 클리어 배지 테두리 */
+  --admin-code-bg: #f8f6f1; /* 기록 원문 코드 배경 */
+}

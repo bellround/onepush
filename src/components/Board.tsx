@@ -120,7 +120,7 @@ export default function Board({
             width,
             height,
             backgroundImage:
-              'linear-gradient(to right, #fff 5px, transparent 5px), linear-gradient(to bottom, #fff 5px, transparent 5px)',
+              'linear-gradient(to right, var(--board-grid-line) 5px, var(--transparent) 5px), linear-gradient(to bottom, var(--board-grid-line) 5px, var(--transparent) 5px)',
             backgroundSize: `${cellSize}px ${cellSize}px`,
           }}
         >
@@ -133,7 +133,7 @@ export default function Board({
                 left: wall.col * cellSize + 5,
                 width: cellSize - 5,
                 height: cellSize - 5,
-                background: '#6b6375',
+                background: 'var(--wall)',
               }}
             />
           ))}
@@ -157,7 +157,7 @@ export default function Board({
                     y1={p1.y + oy * shift}
                     x2={p2.x + ox * shift}
                     y2={p2.y + oy * shift}
-                    stroke="#000"
+                    stroke="var(--bond-line)"
                     strokeWidth={4}
                   />
                 )
@@ -201,10 +201,10 @@ export default function Board({
                 borderRadius: '50%',
                 boxSizing: 'border-box',
                 border:
-                  tile.id === board.controlledId ? '2.8px solid transparent' : '2.8px solid #393939',
-                background: `var(--el-${tile.symbol.toLowerCase()}, #fff)`,
+                  tile.id === board.controlledId ? '2.8px solid var(--transparent)' : '2.8px solid var(--atom-border)',
+                background: `var(--el-${tile.symbol.toLowerCase()}, var(--atom-fallback))`,
                 backgroundClip: 'padding-box', // 검은 C에서도 조종 점선이 묻히지 않게
-                color: ['O', 'N', 'C'].includes(tile.symbol) ? '#fff' : undefined,
+                color: ['O', 'N', 'C'].includes(tile.symbol) ? 'var(--text-on-color)' : undefined,
                 transition: 'top 120ms, left 120ms',
               }}
             >

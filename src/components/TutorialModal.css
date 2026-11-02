@@ -8,7 +8,7 @@
   margin: 0;
   padding: 0;
   border: 0;
-  background: transparent;
+  background: var(--transparent);
   overflow: hidden;
 }
 
@@ -27,7 +27,7 @@
   border-radius: 12px;
   background: var(--bg);
   color: var(--text-h);
-  box-shadow: 0 24px 80px #08060d33;
+  box-shadow: 0 24px 80px var(--tutorial-shadow);
   text-align: left;
   font: 14px/1.5 var(--sans);
   word-break: keep-all;
@@ -35,14 +35,14 @@
 }
 
 .tutorial-modal::backdrop {
-  background: transparent;
+  background: var(--transparent);
 }
 
 .tutorial-spotlight {
   position: fixed;
   border-radius: 12px;
   outline: 3px solid var(--accent);
-  box-shadow: 0 0 0 100vmax #08060d99;
+  box-shadow: 0 0 0 100vmax var(--tutorial-backdrop);
   pointer-events: none;
 }
 
@@ -105,7 +105,7 @@
 .tutorial-modal .btn:disabled {
   opacity: 0.4;
   cursor: default;
-  background: transparent;
+  background: var(--transparent);
 }
 
 @media (max-width: 400px) {
