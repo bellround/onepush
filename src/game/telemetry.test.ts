@@ -14,15 +14,15 @@ test('telemetry sends captured identity and releases caller on timeout or failur
   const keepAlive = setTimeout(() => {}, 1000)
   try {
     globalThis.fetch = (async (_url, init) => {
-      assert.equal(JSON.parse(init!.body as string).expectedUsername, 'captured-player')
+      assert.equal(JSON.parse(init!.body as string).expectedUsername, 'capturedplayer')
       assert.equal(init!.credentials, 'same-origin')
       await new Promise((_resolve, reject) => init!.signal!.addEventListener('abort', () => reject(new Error('timeout')), { once: true }))
       return new Response(null, { status: 204 })
     }) as typeof fetch
-    await sendRound(finishRound(startRound('ch1-1', 0), false), 'captured-player')
+    await sendRound(finishRound(startRound('ch1-1', 0), false), 'capturedplayer')
     assert.equal(requestedTimeout, 5000)
     globalThis.fetch = async () => { throw new Error('offline') }
-    await sendRound(finishRound(startRound('ch1-1', 0), false), 'captured-player')
+    await sendRound(finishRound(startRound('ch1-1', 0), false), 'capturedplayer')
   } finally {
     clearTimeout(keepAlive)
     globalThis.fetch = originalFetch

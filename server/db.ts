@@ -41,13 +41,23 @@ export const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS player_sessions_expiry ON player_sessions(expires_at);
   ALTER TABLE rounds ADD COLUMN IF NOT EXISTS username TEXT;
+  -- 아이디는 대소문자·유니코드 정규화 차이를 무시하고 한 계정으로 본다 (맥 NFD / 윈도 NFC 혼용 방지).
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS username_key TEXT
+    GENERATED ALWAYS AS (lower(normalize(username, NFC))) STORED;
+  CREATE UNIQUE INDEX IF NOT EXISTS players_username_key_unique ON players (username_key);
 `
 
 export async function openDb(connectionString = process.env.DATABASE_URL): Promise<Pool> {
   if (!connectionString) throw new Error('DATABASE_URL required')
   const db = new pg.Pool({ connectionString, max: 10, connectionTimeoutMillis: 5000, statement_timeout: 15000 })
   db.on('error', () => console.warn('Database connection unavailable'))
-  try { await db.query(SCHEMA) } catch (error) { await db.end(); throw error }
+  try { await db.query(SCHEMA) } catch (error) {
+    // username_key 유니크 인덱스는 정규화가 겹치는 기존 계정이 있으면 실패한다 — 조용히 합치지 않고 관리자가 직접 정리하게 알린다.
+    const conflicts = await db.query(`SELECT string_agg(username, ' / ') AS names FROM players GROUP BY lower(normalize(username, NFC)) HAVING count(*) > 1`).catch(() => null)
+    await db.end()
+    const names: string[] = conflicts?.rows.map(row => row.names as string) ?? []
+    throw names.length ? new Error(`아이디 정규화 충돌: ${names.join(', ')} — 한쪽 계정의 username을 바꾸거나 삭제한 뒤 다시 시작하세요.`, { cause: error }) : error
+  }
   return db
 }
 

@@ -8,7 +8,7 @@ import { exportDb, ROUND_COLUMNS, listRounds, openDb, pagination, roundValues } 
 import { createAuth, sameOrigin } from './auth.ts'
 import { injectConfig, normalizeBase } from './platform.ts'
 import { loadCatalog } from './catalog.ts'
-import { createPlayerLimiter, credentials, enterPlayer, getPlayer, newSession, playerCookie, revokeSession, saveProgress } from './player.ts'
+import { createPlayerLimiter, credentials, enterPlayer, getPlayer, inheritProgress, newSession, playerCookie, resetProgress, revokeSession, saveProgress, usernameKey, verifyPlayerPassword } from './player.ts'
 
 const DIST = resolve(import.meta.dirname, '../dist')
 const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' }
@@ -56,12 +56,17 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
           const secure = !!options.production || options.publicOrigin?.startsWith('https:') === true
           try {
             if (path === '/api/account/enter' && req.method === 'POST') {
-              let input
-              try { input = credentials(await readBody(req, 4096)) } catch { return json(res, 400, { error: '이름은 문자·숫자·밑줄·하이픈 1~32자, 비밀번호는 1~128자로 입력해 주세요.' }) }
-              if (!limiter.acquire(req.socket.remoteAddress ?? 'unknown')) return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' })
+              let body, input
+              try { body = await readBody(req, 4096); input = credentials(body) } catch { return json(res, 400, { error: '이름은 문자·숫자 1~32자, 비밀번호는 1~128자로 입력해 주세요.' }) }
+              const guest = (body as { guestProgress?: unknown } | null)?.guestProgress
+              if (guest !== undefined && (typeof guest !== 'number' || !Number.isInteger(guest) || guest < 0)) return json(res, 400, { error: '게스트 진행도가 올바르지 않습니다.' })
+              if (!limiter.acquire(req.socket.remoteAddress ?? 'unknown', usernameKey(input.username))) return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' })
               try {
-                const player = await enterPlayer(db, input.username, input.password)
-                if (!player) return json(res, 401, { error: '비밀번호가 올바르지 않습니다.' })
+                const entered = await enterPlayer(db, input.username, input.password)
+                if (entered === 'weak-password') return json(res, 400, { error: '비밀번호는 4자 이상으로 만들어 주세요.' })
+                if (!entered) return json(res, 401, { error: '비밀번호가 올바르지 않습니다.' })
+                // 조작된 localStorage가 없는 스테이지를 해금하지 못하게 카탈로그 길이로 상한을 건다.
+                const player = guest ? await inheritProgress(db, entered, Math.min(guest, (await catalog).length)) : entered
                 await revokeSession(db, req)
                 const token = await newSession(db, player)
                 res.setHeader('Set-Cookie', playerCookie(token, base, secure))
@@ -76,6 +81,21 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
             if (path === '/api/account' && req.method === 'GET') {
               const player = await getPlayer(db, req)
               return player ? json(res, 200, { username: player.username, progress: player.progress }) : json(res, 401, { error: '로그인이 필요합니다.' })
+            }
+            if (path === '/api/account/reset' && req.method === 'POST') {
+              const player = await getPlayer(db, req)
+              if (!player) return json(res, 401, { error: '다시 로그인해 주세요.' })
+              let body
+              try { body = await readBody(req, 4096) } catch { return json(res, 400, { error: '비밀번호를 입력해 주세요.' }) }
+              const password = (body as { password?: unknown } | null)?.password
+              if (typeof password !== 'string' || !password || password.length > 128) return json(res, 400, { error: '비밀번호를 입력해 주세요.' })
+              if (!limiter.acquire(req.socket.remoteAddress ?? 'unknown', usernameKey(player.username))) return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' })
+              try {
+                // 공유 PC에서 남이 눌러버리는 것을 막는 유일한 장치 — 비밀번호 재확인은 생략할 수 없다.
+                if (!await verifyPlayerPassword(db, player, password)) return json(res, 401, { error: '비밀번호가 올바르지 않습니다.' })
+                const reset = await resetProgress(db, player)
+                return json(res, 200, { username: reset.username, progress: reset.progress })
+              } finally { limiter.release() }
             }
             if (path === '/api/account/progress' && req.method === 'POST') {
               const player = await getPlayer(db, req)
@@ -168,5 +188,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const server = createApp(db, { basePath: process.env.BASE_PATH, password: process.env.ADMIN_PASSWORD ?? '', production: process.env.NODE_ENV === 'production', publicOrigin: process.env.PUBLIC_ORIGIN })
     server.listen(3000, '0.0.0.0', () => console.log('Listening on port 3000'))
     for (const signal of ['SIGTERM', 'SIGINT'] as const) process.on(signal, () => server.close(() => { void db.end().then(() => process.exit(0)) }))
-  } catch { console.error('Startup failed: check database and runtime configuration'); process.exit(1) }
+  } catch (error) { console.error('Startup failed: check database and runtime configuration', error instanceof Error ? error.message : ''); process.exit(1) }
 }

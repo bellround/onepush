@@ -27,6 +27,7 @@ export default function Board({
   onClear,
   saveNotice,
   username,
+  guest,
   accountBusy,
 }: {
   startLevelIndex: number
@@ -34,6 +35,7 @@ export default function Board({
   onClear: (levelIndex: number, expectedUsername: string) => void
   saveNotice: ReactNode
   username: string
+  guest: boolean
   accountBusy: boolean
 }) {
   const [{ levelIndex, board, history, name, targetMolecule, explanation }, setLevel] = useState(() =>
@@ -62,9 +64,10 @@ export default function Board({
     if (exiting.current || accountBusy) return
     exiting.current = true
     setExitPending(true)
-    await sendRound(finishRound(run, advanced), playerUsername)
+    // 게스트 기록은 서버가 받지 않는다 — 로그인 사용자 기록과 섞이지 않게 보내지 않는다.
+    if (!guest) await sendRound(finishRound(run, advanced), playerUsername)
     onExit(levelIndex, advanced)
-  }, [run, onExit, levelIndex, playerUsername, accountBusy])
+  }, [run, onExit, levelIndex, playerUsername, guest, accountBusy])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

@@ -3,16 +3,23 @@ import Board from './components/Board.tsx'
 import LevelSelect from './components/LevelSelect.tsx'
 import Settings from './components/Settings.tsx'
 import MoleculeDex from './components/MoleculeDex.tsx'
-import { AccountError, enterAccount, getAccount, logoutAccount, saveAccountProgress, type PlayerAccount } from './game/account.ts'
+import { AccountError, enterAccount, getAccount, logoutAccount, resetAccountProgress, saveAccountProgress, type PlayerAccount } from './game/account.ts'
+import { advanceProgress, loadProgress, resetProgress } from './game/progress.ts'
 import { LEVELS } from './levels/index.ts'
 import './App.css'
 
 type Screen = 'start' | 'account' | 'settings' | 'playing' | 'levels' | 'dex'
 
+// 게스트는 계정이 없으므로 튜토리얼 완료 기록용으로만 쓰는 고정 이름.
+const GUEST_USERNAME = 'guest'
+
 function App() {
   const [screen, setScreen] = useState<Screen>('start')
   const [account, setAccount] = useState<PlayerAccount | null>(null)
-  const progress = account?.progress ?? 0
+  // 로그인하지 않고 플레이하는 중 — 계정과 동시에 성립하지 않는다(로그인하면 false).
+  const [guest, setGuest] = useState(false)
+  const [guestProgress, setGuestProgress] = useState(0)
+  const progress = account ? account.progress : guest ? guestProgress : 0
   const [busy, setBusy] = useState(true)
   const [restored, setRestored] = useState(false)
   const [error, setError] = useState('')
@@ -46,29 +53,53 @@ function App() {
 
   useEffect(() => {
     let active = true
+    const request = generation.current
     getAccount().then(result => {
-      if (!active) return
+      if (!active || request !== generation.current) return
       setAccount(result)
       setRestored(true)
     }).catch(error => {
-      if (active) setError(error instanceof Error ? error.message : '계정을 불러오지 못했습니다.')
+      if (active && request === generation.current) setError(error instanceof Error ? error.message : '계정을 불러오지 못했습니다.')
     }).finally(() => {
-      if (active) setBusy(false)
+      if (active && request === generation.current) setBusy(false)
     })
     return () => { active = false }
   }, [])
 
+  // 게스트 시작은 서버 응답을 기다리지 않는다 — 진행 중인 계정 요청은 버린다.
+  function startGuest() {
+    generation.current++
+    setError('')
+    setSave(null)
+    setBusy(false)
+    setLastCleared(null)
+    setGuestProgress(loadProgress())
+    setGuest(true)
+    setScreen('levels')
+  }
+
   async function enter(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (authBusy.current || !username.trim() || !password) return
+    if (authBusy.current) return
+    // 아이디·비밀번호를 비운 채 계속을 누르면 게스트로 플레이한다.
+    if (!username.trim() && !password) { startGuest(); return }
+    if (!username.trim() || !password) return
     authBusy.current = true
     const request = ++generation.current
     setBusy(true)
     setError('')
     try {
-      const result = await enterAccount(username.trim(), password)
+      // 이번에 게스트로 깬 진행도만 서버가 계정 진행도와 합쳐 준다.
+      // 게스트 플레이 중이 아니면 보내지 않는다 — 공용 PC에서 앞사람 기록을 물려받지 않게.
+      const local = guest ? loadProgress() : 0
+      const result = await enterAccount(username.trim(), password, local > 0 ? local : undefined)
       if (request !== generation.current) return
       setAccount(result)
+      setRestored(true)
+      // 승계가 끝났으므로 로컬 기록은 지운다 — 공용 PC에서 다음 게스트가 물려받지 않게.
+      resetProgress()
+      setGuestProgress(0)
+      setGuest(false)
       setLastCleared(null)
       setSave(null)
       setPassword('')
@@ -122,6 +153,28 @@ function App() {
     }
   }, [])
 
+  // 게스트는 저장 실패가 없다 — 네트워크 없이 로컬에만 기록한다.
+  const clearGuest = useCallback((index: number) => {
+    setLastCleared(index)
+    setGuestProgress(advanceProgress(index))
+  }, [])
+
+  // 설정 > 데이터의 진행 상황 초기화 — 로그인 상태에서는 비밀번호를 다시 확인한다.
+  const resetData = useCallback(async (password: string) => {
+    if (!account) {
+      resetProgress()
+      setGuestProgress(0)
+      setLastCleared(null)
+      return
+    }
+    const request = ++generation.current
+    const result = await resetAccountProgress(password)
+    if (request !== generation.current) return
+    setAccount(result)
+    setLastCleared(null)
+    setSave(null)
+  }, [account])
+
   async function recover(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!save || authBusy.current || saving.current || !recoveryPassword) return
@@ -169,6 +222,9 @@ function App() {
     </div>
   )
 
+  // 아이디·비밀번호가 모두 비어 있으면 계속 버튼이 게스트 진입이 된다.
+  const guestEntry = !username.trim() && !password
+
   if (screen === 'account') {
     return <section className="menu">
       <div>
@@ -177,11 +233,12 @@ function App() {
       </div>
       <form className="account-form" onSubmit={enter} aria-busy={busy}>
         <label htmlFor="player-username">아이디</label>
-        <input id="player-username" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={event => setUsername(event.target.value)} disabled={busy} required autoFocus />
+        <input id="player-username" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={event => setUsername(event.target.value)} disabled={busy} autoFocus />
         <label htmlFor="player-password">비밀번호</label>
-        <input id="player-password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} disabled={busy} required />
+        <input id="player-password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} disabled={busy} />
         {error && <p role="alert">{error}</p>}
-        <button className="btn" type="submit" disabled={busy || !username.trim() || !password}>{busy ? '확인 중…' : '계속'}</button>
+        {/* 둘 다 비어 있으면 게스트 진입이라 서버 응답을 기다리지 않는다. */}
+        <button className="btn" type="submit" disabled={guestEntry ? false : busy || !username.trim() || !password}>{busy && !guestEntry ? '확인 중…' : '계속'}</button>
       </form>
       <button className="btn" type="button" disabled={busy} onClick={() => { setPassword(''); setError(''); setScreen('start') }}>뒤로</button>
     </section>
@@ -191,6 +248,8 @@ function App() {
     return (
       <Settings
         onBack={() => { if (!authBusy.current) setScreen('start') }}
+        resetMode={account ? 'account' : guest ? 'guest' : null}
+        onReset={resetData}
       />
     )
   }
@@ -199,7 +258,7 @@ function App() {
     return <MoleculeDex progress={progress} onBack={() => setScreen('start')} />
   }
 
-  if (screen === 'levels' && account) {
+  if (screen === 'levels' && (account || guest)) {
     return (
       <>
       {saveNotice}
@@ -218,13 +277,14 @@ function App() {
     )
   }
 
-  if (screen === 'playing' && account) {
+  if (screen === 'playing' && (account || guest)) {
     return (
       <Board
         startLevelIndex={playingIndex}
-        username={account.username}
-        accountBusy={busy}
-        onClear={persistClear}
+        username={account ? account.username : GUEST_USERNAME}
+        guest={!account}
+        accountBusy={account ? busy : false}
+        onClear={account ? persistClear : clearGuest}
         saveNotice={saveNotice}
         onExit={(levelIndex, cleared) => {
           if (!cleared) {
@@ -257,11 +317,12 @@ function App() {
         </p>
       </div>
       <div className="menu-actions">
+        {/* 계정이 없으면 서버가 응답하지 않아도 눌려야 한다 — 로그인 화면에서 게스트로 들어갈 수 있다. */}
         <button
           type="button"
           className="btn"
-          disabled={busy || !restored || (save !== null && save.status !== 'saved')}
-          onClick={() => { setError(''); setScreen(account ? 'levels' : 'account') }}
+          disabled={!!account && (busy || !restored || (save !== null && save.status !== 'saved'))}
+          onClick={() => { setError(''); setScreen(account || guest ? 'levels' : 'account') }}
         >
           게임 시작
         </button>
@@ -274,8 +335,12 @@ function App() {
       </div>
       {busy && <p role="status">계정 확인 중…</p>}
       {error && <p role="alert">{error}</p>}
-      {!restored && !busy && <button type="button" className="btn" onClick={() => void restore()}>계정 다시 불러오기</button>}
+      {!guest && !restored && !busy && <button type="button" className="btn" onClick={() => void restore()}>계정 다시 불러오기</button>}
       {saveNotice}
+      {guest && <div className="account-identity">
+        <span>게스트로 플레이 중</span>
+        <button type="button" className="btn" onClick={() => { setError(''); setScreen('account') }}>로그인</button>
+      </div>}
       {account && <div className="account-identity">
         <span><strong>{account.username}</strong> 님</span>
         <button type="button" className="btn" disabled={busy || (save !== null && save.status !== 'saved')} onClick={() => void logout()}>로그아웃</button>
