@@ -4,7 +4,7 @@ import { extname, join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Pool } from 'pg'
-import { exportDb, ROUND_COLUMNS, listRounds, openDb, pagination, roundValues } from './db.ts'
+import { exportDb, listRounds, openDb, pagination, roundIdentity, roundValues, saveRound } from './db.ts'
 import { createAuth, sameOrigin } from './auth.ts'
 import { injectConfig, normalizeBase } from './platform.ts'
 import { loadCatalog } from './catalog.ts'
@@ -146,18 +146,24 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
         }
         if (path === '/api/rounds' && req.method === 'POST') {
           if (!sameOrigin(req, options.publicOrigin)) return json(res, 403, { error: 'Forbidden' })
-          let player
-          try { player = await getPlayer(db, req) } catch { return json(res, 503, { error: 'Database unavailable' }) }
-          if (!player) return json(res, 401, { error: 'Unauthorized' })
-          let values
+          let body, identity
           try {
-            const body = await readBody(req)
-            const expectedUsername = (body as { expectedUsername?: unknown } | null)?.expectedUsername
+            body = await readBody(req)
+            identity = roundIdentity(body)
+          } catch (error) { return json(res, error instanceof RangeError ? 413 : 400, { error: 'Invalid round' }) }
+          let username: string | null = null
+          if (identity.owner?.kind !== 'guest') {
+            let player
+            try { player = await getPlayer(db, req) } catch { return json(res, 503, { error: 'Database unavailable' }) }
+            if (!player) return json(res, 401, { error: 'Unauthorized' })
+            const expectedUsername = identity.owner?.expectedUsername ?? (body as { expectedUsername?: unknown }).expectedUsername
             if (typeof expectedUsername !== 'string' || !expectedUsername) return json(res, 400, { error: 'Expected account required' })
             if (expectedUsername !== player.username) return json(res, 409, { error: 'Account changed' })
-            values = roundValues(body)
-          } catch (error) { return json(res, error instanceof RangeError ? 413 : 400, { error: 'Invalid round' }) }
-          try { await db.query(`INSERT INTO rounds (${ROUND_COLUMNS}, username) VALUES (${Array.from({ length: 15 }, (_, i) => `$${i + 1}`).join(', ')})`, [...values, player.username]) } catch { return json(res, 503, { error: 'Database unavailable' }) }
+            username = player.username
+          }
+          let values
+          try { values = roundValues(body) } catch { return json(res, 400, { error: 'Invalid round' }) }
+          try { await saveRound(db, values, identity, username) } catch { return json(res, 503, { error: 'Database unavailable' }) }
           return res.writeHead(204).end()
         }
         return json(res, 404, { error: 'Not found' })

@@ -41,6 +41,12 @@ export const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS player_sessions_expiry ON player_sessions(expires_at);
   ALTER TABLE rounds ADD COLUMN IF NOT EXISTS username TEXT;
+  ALTER TABLE rounds ADD COLUMN IF NOT EXISTS round_id UUID;
+  ALTER TABLE rounds ADD COLUMN IF NOT EXISTS revision BIGINT CHECK (revision > 0);
+  CREATE UNIQUE INDEX IF NOT EXISTS rounds_guest_round_unique ON rounds (session_id, round_id)
+    WHERE username IS NULL AND round_id IS NOT NULL;
+  CREATE UNIQUE INDEX IF NOT EXISTS rounds_member_round_unique ON rounds (username, round_id)
+    WHERE username IS NOT NULL AND round_id IS NOT NULL;
   -- 아이디는 대소문자·유니코드 정규화 차이를 무시하고 한 계정으로 본다 (맥 NFD / 윈도 NFC 혼용 방지).
   ALTER TABLE players ADD COLUMN IF NOT EXISTS username_key TEXT
     GENERATED ALWAYS AS (lower(normalize(username, NFC))) STORED;
@@ -129,6 +135,36 @@ export function roundValues(body: unknown): unknown[] {
 
 export const ROUND_COLUMNS = 'session_id, chapter, round, level_id, level_index, cleared, clear_ms, quit_ms, advanced_after_clear, reset_count, undo_count, first_move_ms, max_gap_ms, actions'
 export const INSERT_ROUND = `INSERT INTO rounds (${ROUND_COLUMNS}) VALUES (${Array.from({ length: 14 }, (_, i) => `$${i + 1}`).join(', ')})`
+
+export function roundIdentity(body: unknown) {
+  if (typeof body !== 'object' || body === null) throw new Error('bad body')
+  const b = body as Record<string, unknown>
+  let owner: { kind: 'guest' } | { kind: 'member'; expectedUsername: string } | undefined
+  if (b.owner !== undefined) {
+    if (typeof b.owner !== 'object' || b.owner === null || Array.isArray(b.owner)) throw new Error('bad owner')
+    const o = b.owner as Record<string, unknown>
+    if (o.kind === 'guest') owner = { kind: 'guest' }
+    else if (o.kind === 'member') owner = { kind: 'member', expectedUsername: str(o.expectedUsername, 64) }
+    else throw new Error('bad owner')
+  }
+  if (!owner && b.roundId === undefined && b.revision === undefined) return { owner, roundId: null, revision: null }
+  const roundId = str(b.roundId, 36)
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roundId)) throw new Error('bad roundId')
+  const revision = int(b.revision)
+  if (revision === 0) throw new Error('bad revision')
+  return { owner, roundId, revision }
+}
+
+export async function saveRound(db: Pick<Pool, 'query'>, values: unknown[], identity: ReturnType<typeof roundIdentity>, username: string | null): Promise<void> {
+  const columns = `${ROUND_COLUMNS}, username, round_id, revision`
+  const conflict = username === null
+    ? '(session_id, round_id) WHERE username IS NULL AND round_id IS NOT NULL'
+    : '(username, round_id) WHERE username IS NOT NULL AND round_id IS NOT NULL'
+  await db.query(`INSERT INTO rounds (${columns}) VALUES (${Array.from({ length: 17 }, (_, i) => `$${i + 1}`).join(', ')})
+    ON CONFLICT ${conflict} DO UPDATE SET
+    ${ROUND_COLUMNS.split(', ').map(column => `${column} = EXCLUDED.${column}`).join(', ')}, revision = EXCLUDED.revision
+    WHERE EXCLUDED.revision > rounds.revision`, [...values, username, identity.roundId, identity.revision])
+}
 
 export async function insertRound(db: Pick<Pool, 'query'>, body: unknown): Promise<void> {
   await db.query(INSERT_ROUND, roundValues(body))

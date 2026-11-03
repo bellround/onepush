@@ -6,6 +6,48 @@ import { normalizeBase, injectConfig } from './platform.ts'
 import { createAuth } from './auth.ts'
 import type { IncomingMessage } from 'node:http'
 
+test('explicit guest telemetry ignores sessions; member ownership and legacy authentication remain required', async () => {
+  const writes: unknown[][] = []
+  let lookups = 0
+  let expired = false
+  let failing = false
+  const db = { query: async (sql: string, args: unknown[]) => {
+    if (sql.includes('JOIN player_sessions')) { lookups++; return { rows: expired ? [] : [{ id: '1', username: 'Kim', progress: 0 }] } }
+    if (failing) throw new Error('private database error')
+    writes.push(args)
+    return { rows: [] }
+  } } as unknown as Pool
+  const server = createApp(db, { password: 'test-only', basePath: '/school', levelIds: ['ch1-1'] })
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  const root = `http://127.0.0.1:${(server.address() as { port: number }).port}`
+  const headers = { origin: root, cookie: `ion_player=${'a'.repeat(64)}` }
+  const body = { sessionId: 'guest-session', levelId: 'ch1-1', levelIndex: 0, cleared: true, clearMs: 100, advancedAfterClear: false, resetCount: 0, undoCount: 0, actions: [], roundId: crypto.randomUUID(), revision: 1, owner: { kind: 'guest' } }
+  const post = (payload: unknown, h = headers, path = '/rounds') => fetch(`${root}/school/api${path}`, { method: 'POST', headers: h, body: JSON.stringify(payload) })
+  try {
+    assert.equal((await post(body, { ...headers, cookie: '' })).status, 204)
+    assert.equal((await post({ ...body, username: 'spoof', expectedUsername: 'Kim' })).status, 204)
+    assert.equal(lookups, 0)
+    assert.equal(writes[0][14], null)
+    assert.equal(writes[1][14], null)
+    assert.equal((await post(body, { ...headers, origin: 'https://evil.test' })).status, 403)
+    assert.equal((await post({ ...body, revision: 0 })).status, 400)
+    assert.equal((await post({ ...body, owner: { kind: 'member' }, expectedUsername: 'Kim' })).status, 400)
+    assert.equal((await post({ ...body, owner: { kind: 'member', expectedUsername: 'Old' }, expectedUsername: 'Kim' })).status, 409)
+    const member = { ...body, owner: { kind: 'member', expectedUsername: 'Kim' }, expectedUsername: 'ignored' }
+    assert.equal((await post(member)).status, 204)
+    assert.equal(writes.at(-1)![14], 'Kim')
+    expired = true
+    assert.equal((await post(member)).status, 401)
+    assert.equal((await post({ ...body, owner: undefined, expectedUsername: 'Kim' })).status, 401)
+    assert.equal((await post(body)).status, 204)
+    assert.equal((await post(body, { ...headers, cookie: '' }, '/account/progress')).status, 401)
+    failing = true
+    const response = await post(body)
+    assert.equal(response.status, 503)
+    assert.deepEqual(await response.json(), { error: 'Database unavailable' })
+  } finally { await new Promise<void>(resolve => server.close(() => resolve())) }
+})
+
 test('admin JSON export requires auth and origin, supports prefix, and hides database failures', async () => {
   let failing = false
   let calls = 0

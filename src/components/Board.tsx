@@ -47,27 +47,41 @@ export default function Board({
   const cleared = isCleared(board)
   const clearReported = useRef(false)
   const exiting = useRef(false)
+  const advancedOnExit = useRef(false)
   const [exitPending, setExitPending] = useState(false)
 
   // 리셋해도 같은 라운드다 — 이 컴포넌트가 살아있는 동안 하나의 기록만 쌓인다.
-  const [run] = useState(() => startRound(LEVELS[startLevelIndex].id, startLevelIndex))
+  const [run] = useState(() => startRound(LEVELS[startLevelIndex].id, startLevelIndex, Date.now(),
+    guest ? { kind: 'guest' } : { kind: 'member', expectedUsername: playerUsername }))
+
+  const captureClear = useCallback((nextBoard: BoardState) => {
+    if (run.clearMs !== null || !isCleared(nextBoard)) return
+    recordClear(run)
+    void sendRound(finishRound(run, false))
+  }, [run])
 
   useEffect(() => {
     if (!cleared || clearReported.current) return
     clearReported.current = true
-    recordClear(run)
+    captureClear(board)
     play('clear')
     onClear(levelIndex, playerUsername)
-  }, [cleared, run, onClear, levelIndex, playerUsername])
+  }, [cleared, board, captureClear, onClear, levelIndex, playerUsername])
+
+  useEffect(() => {
+    const pagehide = () => { void sendRound(finishRound(run, advancedOnExit.current), true) }
+    window.addEventListener('pagehide', pagehide)
+    return () => window.removeEventListener('pagehide', pagehide)
+  }, [run])
 
   const exit = useCallback(async (advanced: boolean) => {
     if (exiting.current || accountBusy) return
     exiting.current = true
+    advancedOnExit.current = advanced
     setExitPending(true)
-    // 게스트 기록은 서버가 받지 않는다 — 로그인 사용자 기록과 섞이지 않게 보내지 않는다.
-    if (!guest) await sendRound(finishRound(run, advanced), playerUsername)
+    await sendRound(finishRound(run, advanced))
     onExit(levelIndex, advanced)
-  }, [run, onExit, levelIndex, playerUsername, guest, accountBusy])
+  }, [run, onExit, levelIndex, accountBusy])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -91,6 +105,7 @@ export default function Board({
         e.preventDefault()
         if (history.length === 0) return
         recordAction(run, 'undo', null, null)
+        captureClear(history[history.length - 1])
         play('undo')
         setLevel((level) => ({
           ...level,
@@ -115,11 +130,12 @@ export default function Board({
       play(moveSound(board, newBoard))
       if (newBoard === board) return
       recordAction(run, 'move', direction, newBoard)
+      captureClear(newBoard)
       setLevel((level) => ({ ...level, board: newBoard, history: [...level.history, board] }))
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [bindings, board, cleared, history, levelIndex, exit, run, tutorialOpen, accountBusy])
+  }, [bindings, board, cleared, history, levelIndex, exit, run, captureClear, tutorialOpen, accountBusy])
 
   const cellSize = Math.floor(BOARD_VIEW / Math.max(board.cols, board.rows))
   const atomSize = Math.round((cellSize - GRID_LINE) * 0.8)

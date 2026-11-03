@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { exportDb, listRounds, openDb, pagination, roundValues, insertRound, ROUND_COLUMNS } from './db.ts'
+import { exportDb, listRounds, openDb, pagination, roundValues, roundIdentity, saveRound, insertRound, ROUND_COLUMNS } from './db.ts'
 
 export const VALID = {
   sessionId: 'abc-123', levelId: 'ch1-4', levelIndex: 3, cleared: true,
@@ -8,6 +8,62 @@ export const VALID = {
   undoCount: 2, firstMoveMs: 500, maxGapMs: 1300,
   actions: [{ kind: 'move', direction: 'up', t: 500, board: [[{ ion: 'Na', charge: 1 }]], extra: { preserved: true } }],
 }
+
+test('round identity validates explicit owners and paired version fields without changing legacy values', () => {
+  const roundId = crypto.randomUUID()
+  assert.deepEqual(roundIdentity(VALID), { owner: undefined, roundId: null, revision: null })
+  for (const owner of [{ kind: 'guest' }, { kind: 'member', expectedUsername: 'Kim' }]) {
+    const body = { ...VALID, owner, roundId, revision: 1 }
+    assert.deepEqual(roundIdentity(body), { owner, roundId, revision: 1 })
+    assert.deepEqual(roundValues(body), roundValues(VALID))
+  }
+  for (const change of [{ roundId: 'invalid' }, { revision: 0 }, { revision: -1 }, { revision: 1.5 }, { revision: '1' }, { revision: 1e12 + 1 }, { revision: undefined }, { roundId: undefined }, { owner: null }, { owner: [] }, { owner: { kind: 'unknown' } }, { owner: { kind: 'member' }, expectedUsername: 'Kim' }]) {
+    assert.throws(() => roundIdentity({ owner: { kind: 'guest' }, roundId, revision: 1, ...change }))
+  }
+})
+
+test('PostgreSQL higher revisions win atomically within guest/member ownership scopes', { skip: !process.env.TEST_DATABASE_URL }, async () => {
+  const db = await openDb(process.env.TEST_DATABASE_URL)
+  const client = await db.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('CREATE TEMP TABLE rounds (LIKE public.rounds INCLUDING ALL) ON COMMIT DROP')
+    const roundId = crypto.randomUUID()
+    const save = (revision: number, username: string | null = null, sessionId = 'guest-a', quitMs = revision * 100) => {
+      const body = { ...VALID, sessionId, roundId, revision, quitMs, cleared: revision >= 2 }
+      return saveRound(client, roundValues(body), roundIdentity(body), username)
+    }
+    await save(1)
+    const original = (await client.query('SELECT id, created_at FROM rounds')).rows[0]
+    await save(3)
+    await save(3, null, 'guest-a', 999)
+    await save(1)
+    const row = (await client.query('SELECT * FROM rounds')).rows[0]
+    assert.equal(row.revision, '3')
+    assert.equal(row.quit_ms, 300)
+    assert.equal(row.cleared, true)
+    assert.equal(row.id, original.id)
+    assert.deepEqual(row.created_at, original.created_at)
+    await save(1, null, 'guest-b')
+    await save(1, 'Alice')
+    await save(2, 'Alice', 'new-session')
+    await save(1, 'Bob')
+    const rows = (await client.query('SELECT username, session_id, revision FROM rounds ORDER BY username NULLS FIRST, session_id')).rows
+    assert.deepEqual(rows, [
+      { username: null, session_id: 'guest-a', revision: '3' },
+      { username: null, session_id: 'guest-b', revision: '1' },
+      { username: 'Alice', session_id: 'new-session', revision: '2' },
+      { username: 'Bob', session_id: 'guest-a', revision: '1' },
+    ])
+    await insertRound(client, VALID)
+    await insertRound(client, VALID)
+    assert.equal((await client.query('SELECT count(*) FROM rounds WHERE round_id IS NULL AND revision IS NULL')).rows[0].count, '2')
+  } finally {
+    await client.query('ROLLBACK')
+    client.release()
+    await db.end()
+  }
+})
 
 test('actual PostgreSQL export includes complete tables, exact IDs and microsecond timestamps', { skip: !process.env.TEST_DATABASE_URL }, async () => {
   const db = await openDb(process.env.TEST_DATABASE_URL)

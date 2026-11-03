@@ -11,6 +11,9 @@ export interface RoundAction {
 
 // 플레이 중 쌓아가는 진행 상태 (mutable).
 export interface RoundRun {
+  roundId: string
+  revision: number
+  owner: RoundOwner
   levelId: string
   levelIndex: number
   startedAt: number
@@ -20,6 +23,9 @@ export interface RoundRun {
 
 // 라운드가 끝날 때 서버로 보내는 한 줄.
 export interface RoundRecord {
+  roundId: string
+  revision: number
+  owner: RoundOwner
   levelId: string
   levelIndex: number
   cleared: boolean
@@ -33,8 +39,10 @@ export interface RoundRecord {
   actions: RoundAction[]
 }
 
-export function startRound(levelId: string, levelIndex: number, now = Date.now()): RoundRun {
-  return { levelId, levelIndex, startedAt: now, actions: [], clearMs: null }
+export type RoundOwner = { kind: 'guest' } | { kind: 'member'; expectedUsername: string }
+
+export function startRound(levelId: string, levelIndex: number, now = Date.now(), owner: RoundOwner = { kind: 'guest' }): RoundRun {
+  return { roundId: crypto.randomUUID(), revision: 0, owner: { ...owner }, levelId, levelIndex, startedAt: now, actions: [], clearMs: null }
 }
 
 export function recordAction(
@@ -60,6 +68,9 @@ export function finishRound(run: RoundRun, advancedAfterClear: boolean, now = Da
     if (maxGapMs === null || gap > maxGapMs) maxGapMs = gap
   }
   return {
+    roundId: run.roundId,
+    revision: ++run.revision,
+    owner: { ...run.owner },
     levelId: run.levelId,
     levelIndex: run.levelIndex,
     cleared: run.clearMs !== null,
@@ -70,7 +81,7 @@ export function finishRound(run: RoundRun, advancedAfterClear: boolean, now = Da
     undoCount: run.actions.filter((a) => a.kind === 'undo').length,
     firstMoveMs: moves.length > 0 ? moves[0].t : null,
     maxGapMs,
-    actions: run.actions,
+    actions: structuredClone(run.actions),
   }
 }
 
@@ -89,14 +100,143 @@ function sessionId(): string {
   }
 }
 
-// 전송 실패는 무시한다 — 기록 때문에 게임이 멈추면 안 된다.
-export async function sendRound(record: RoundRecord, expectedUsername: string): Promise<void> {
-  await fetch(apiUrl('/rounds'), {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...record, sessionId: sessionId(), expectedUsername }),
-    signal: AbortSignal.timeout(5000),
-    keepalive: true,
-  }).catch(() => {})
+const QUEUE_PREFIX = 'round-queue:v1:'
+interface PendingRound {
+  record: RoundRecord & { sessionId: string }
+  blocked?: 'account' | 'invalid'
+}
+export type DeliveryResult = 'sent' | 'queued' | 'storage-error'
+let confirmedUsername: string | null = null
+let accountVersion = 0
+let retryTimer: ReturnType<typeof setTimeout> | undefined
+let retryAttempt = 0
+let running = false
+let keepaliveBytes = 0
+const inFlight = new Set<string>()
+
+function storageFailure(error: unknown): void {
+  console.error('Round queue storage failed; recording is not guaranteed.', error)
+}
+
+function pendingRounds(): PendingRound[] {
+  const entries: PendingRound[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key?.startsWith(QUEUE_PREFIX)) continue
+    try {
+      const entry = JSON.parse(localStorage.getItem(key)!) as PendingRound
+      if (entry.record?.roundId && entry.record.owner) entries.push(entry)
+    } catch (error) { storageFailure(error) }
+  }
+  return entries
+}
+
+function scheduleRetry(): void {
+  if (!running || retryTimer || retryAttempt >= 5) return
+  retryTimer = setTimeout(() => {
+    retryTimer = undefined
+    void flushRounds()
+  }, Math.min(1000 * 2 ** retryAttempt++, 30000))
+}
+
+async function deliver(entry: PendingRound, pagehide = false): Promise<DeliveryResult> {
+  const { record } = entry
+  if (entry.blocked || (record.owner.kind === 'member' && record.owner.expectedUsername !== confirmedUsername)) return 'queued'
+  const key = QUEUE_PREFIX + record.roundId
+  const flight = `${key}:${record.revision}`
+  if (inFlight.has(flight)) return 'queued'
+  const body = JSON.stringify({ ...record, ...(record.owner.kind === 'member' ? { expectedUsername: record.owner.expectedUsername } : {}) })
+  const bytes = new TextEncoder().encode(body).byteLength
+  // Leave headroom for other keepalive users sharing the browser's 64 KiB budget.
+  if (pagehide && keepaliveBytes + bytes > 48 * 1024) return 'queued'
+  inFlight.add(flight)
+  if (pagehide) keepaliveBytes += bytes
+  const version = accountVersion
+  try {
+    const response = await fetch(apiUrl('/rounds'), {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body,
+      signal: AbortSignal.timeout(5000), ...(pagehide ? { keepalive: true } : {}),
+    }).catch(() => null)
+    if (!response) {
+      scheduleRetry()
+      return 'queued'
+    }
+    const current = JSON.parse(localStorage.getItem(key) ?? 'null') as PendingRound | null
+    if (current?.record.revision !== record.revision) return 'queued'
+    if (response.ok) {
+      localStorage.removeItem(key)
+      return 'sent'
+    }
+    if (response.status === 401 || response.status === 409) {
+      if (version === accountVersion) {
+        current.blocked = 'account'
+        localStorage.setItem(key, JSON.stringify(current))
+      } else scheduleRetry()
+    } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+      current.blocked = 'invalid'
+      localStorage.setItem(key, JSON.stringify(current))
+    } else scheduleRetry()
+  } catch (error) {
+    storageFailure(error)
+    scheduleRetry()
+    return 'storage-error'
+  } finally {
+    inFlight.delete(flight)
+    if (pagehide) keepaliveBytes -= bytes
+  }
+  return 'queued'
+}
+
+export function sendRound(record: RoundRecord, pagehide = false): Promise<DeliveryResult> {
+  try {
+    const key = QUEUE_PREFIX + record.roundId
+    const previous = JSON.parse(localStorage.getItem(key) ?? 'null') as PendingRound | null
+    if (previous && previous.record.revision >= record.revision) return Promise.resolve('queued')
+    const entry: PendingRound = { record: { ...structuredClone(record), sessionId: sessionId() }, blocked: previous?.blocked }
+    localStorage.setItem(key, JSON.stringify(entry))
+    return deliver(entry, pagehide)
+  } catch (error) {
+    storageFailure(error)
+    return Promise.resolve('storage-error')
+  }
+}
+
+export async function flushRounds(): Promise<void> {
+  try { await Promise.all(pendingRounds().map(entry => deliver(entry))) }
+  catch (error) { storageFailure(error) }
+}
+
+// Call only after a successful session lookup/login, never from a cached username.
+export function confirmRoundAccount(username: string | null): void {
+  confirmedUsername = username
+  accountVersion++
+  retryAttempt = 0
+  try {
+    for (const entry of pendingRounds()) {
+      if (entry.blocked === 'account' && (entry.record.owner.kind === 'guest' || entry.record.owner.expectedUsername === username)) {
+        delete entry.blocked
+        localStorage.setItem(QUEUE_PREFIX + entry.record.roundId, JSON.stringify(entry))
+      }
+    }
+  } catch (error) { storageFailure(error) }
+  void flushRounds()
+}
+
+export function suspendRoundAccount(): void {
+  confirmedUsername = null
+  accountVersion++
+}
+
+export function startRoundDelivery(): () => void {
+  running = true
+  const online = () => { retryAttempt = 0; void flushRounds() }
+  window.addEventListener('online', online)
+  void flushRounds()
+  return () => {
+    running = false
+    window.removeEventListener('online', online)
+    clearTimeout(retryTimer)
+    retryTimer = undefined
+  }
 }

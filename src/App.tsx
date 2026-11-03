@@ -5,6 +5,7 @@ import Settings from './components/Settings.tsx'
 import MoleculeDex from './components/MoleculeDex.tsx'
 import { AccountError, enterAccount, getAccount, logoutAccount, resetAccountProgress, saveAccountProgress, type PlayerAccount } from './game/account.ts'
 import { advanceProgress, loadProgress, resetProgress } from './game/progress.ts'
+import { confirmRoundAccount, startRoundDelivery, suspendRoundAccount } from './game/telemetry.ts'
 import { LEVELS } from './levels/index.ts'
 import './App.css'
 
@@ -35,7 +36,10 @@ function App() {
   // 이번 세션에 방금 깬 레벨 — 레벨 선택 화면을 그 챕터에서 열기 위한 기준.
   const [lastCleared, setLastCleared] = useState<number | null>(null)
 
+  useEffect(startRoundDelivery, [])
+
   const restore = useCallback(async () => {
+    suspendRoundAccount()
     const request = ++generation.current
     setBusy(true)
     setError('')
@@ -43,6 +47,7 @@ function App() {
       const result = await getAccount()
       if (request !== generation.current) return
       setAccount(result)
+      confirmRoundAccount(result?.username ?? null)
       setRestored(true)
     } catch (error) {
       if (request === generation.current) setError(error instanceof Error ? error.message : '계정을 불러오지 못했습니다.')
@@ -57,6 +62,7 @@ function App() {
     getAccount().then(result => {
       if (!active || request !== generation.current) return
       setAccount(result)
+      confirmRoundAccount(result?.username ?? null)
       setRestored(true)
     }).catch(error => {
       if (active && request === generation.current) setError(error instanceof Error ? error.message : '계정을 불러오지 못했습니다.')
@@ -68,6 +74,7 @@ function App() {
 
   // 게스트 시작은 서버 응답을 기다리지 않는다 — 진행 중인 계정 요청은 버린다.
   function startGuest() {
+    suspendRoundAccount()
     generation.current++
     setError('')
     setSave(null)
@@ -85,6 +92,7 @@ function App() {
     if (!username.trim() && !password) { startGuest(); return }
     if (!username.trim() || !password) return
     authBusy.current = true
+    suspendRoundAccount()
     const request = ++generation.current
     setBusy(true)
     setError('')
@@ -95,6 +103,7 @@ function App() {
       const result = await enterAccount(username.trim(), password, local > 0 ? local : undefined)
       if (request !== generation.current) return
       setAccount(result)
+      confirmRoundAccount(result.username)
       setRestored(true)
       // 승계가 끝났으므로 로컬 기록은 지운다 — 공용 PC에서 다음 게스트가 물려받지 않게.
       resetProgress()
@@ -115,6 +124,7 @@ function App() {
   async function logout() {
     if (authBusy.current || saving.current || (save && save.status !== 'saved')) return
     authBusy.current = true
+    suspendRoundAccount()
     const request = ++generation.current
     setBusy(true)
     setError('')
@@ -122,6 +132,7 @@ function App() {
       await logoutAccount()
       if (request !== generation.current) return
       setAccount(null)
+      confirmRoundAccount(null)
       setLastCleared(null)
       setSave(null)
       setUsername('')
@@ -189,6 +200,7 @@ function App() {
       if (result.username !== pending.username) throw new Error('원래 계정으로 다시 로그인해 주세요.')
       setAccount(result)
       setRecoveryPassword('')
+      confirmRoundAccount(result.username)
       await persistClear(pending.index, pending.username)
     } catch (error) {
       if (request === generation.current) setRecoveryError(error instanceof Error ? error.message : '다시 로그인하지 못했습니다.')

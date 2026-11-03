@@ -24,6 +24,9 @@ test('SQLite source UUID lowercase then uppercase retry deduplicates', { skip: !
     }
     const result = await db.query('SELECT r.* FROM rounds r JOIN round_imports i ON i.round_id=r.id WHERE lower(i.source)=$1', [source])
     assert.equal(result.rows.length, 1)
+    assert.equal(result.rows[0].round_id, null)
+    assert.equal(result.rows[0].revision, null)
+    assert.equal(result.rows[0].username, null)
     assert.equal(result.rows[0].created_at.toISOString(), '2020-01-02T03:04:05.000Z')
     assert.deepEqual(result.rows[0].actions[0].board, [[1]])
   } finally {

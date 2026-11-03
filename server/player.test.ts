@@ -82,7 +82,7 @@ test('HTTP player auth, origin, locked stages and telemetry identity', async () 
     assert.deepEqual(await (await post('/account/progress', { levelId: 'ch1-1', username: 'spoof', expectedUsername })).json(), { username: 'real-player', progress: 1 })
     assert.deepEqual(await (await post('/account/progress', { levelId: 'ch1-1', expectedUsername })).json(), { username: 'real-player', progress: 1 })
     assert.equal((await post('/rounds', { username: 'spoof', expectedUsername, sessionId: 'x', levelId: 'ch1-1', levelIndex: 0, cleared: true, advancedAfterClear: false, resetCount: 0, undoCount: 0, actions: [] })).status, 204)
-    assert.equal(inserted.at(-1), 'real-player')
+    assert.equal(inserted[14], 'real-player')
     assert.equal((await fetch(root + '/admin/rounds', { headers })).status, 401)
     failing = true
     assert.equal((await fetch(root + '/account', { headers })).status, 503)
