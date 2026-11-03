@@ -6,6 +6,7 @@
   justify-content: center;
   gap: 28px;
   padding: 24px;
+  position: relative;
 }
 
 .menu-eyebrow {
@@ -71,6 +72,13 @@
   gap: 8px;
   padding: 12px;
   overflow-wrap: anywhere;
+}
+
+.account-identity {
+  position: absolute;
+  top: 0;
+  right: 0;
+  zoom: 0.85;
 }
 
 /* 전자가 핵 주위를 도는 모습 — 원자가전자 결합이라는 핵심 메커닉을 그대로 로고로 사용 */
