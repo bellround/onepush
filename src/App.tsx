@@ -238,7 +238,7 @@ function App() {
         <input id="player-password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} disabled={busy} />
         {error && <p role="alert">{error}</p>}
         {/* 둘 다 비어 있으면 게스트 진입이라 서버 응답을 기다리지 않는다. */}
-        <button className="btn" type="submit" disabled={guestEntry ? false : busy || !username.trim() || !password}>{busy && !guestEntry ? '확인 중…' : '계속'}</button>
+        <button className="btn" type="submit" disabled={guestEntry ? false : busy || !username.trim() || !password}>{guestEntry ? '게스트로' : busy ? '확인 중…' : '계속'}</button>
       </form>
       <button className="btn" type="button" disabled={busy} onClick={() => { setPassword(''); setError(''); setScreen('start') }}>뒤로</button>
     </section>
