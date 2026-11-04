@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { interpolatePositions, MOVE_MS, type Position } from './boardAnimation.ts'
 import { isCleared, pushTile } from '../game/board.ts'
 import { keyLabel, loadKeybindings } from '../game/keybindings.ts'
 import { finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
@@ -49,6 +50,24 @@ export default function Board({
   const exiting = useRef(false)
   const advancedOnExit = useRef(false)
   const [exitPending, setExitPending] = useState(false)
+  const [displayPositions, setDisplayPositions] = useState<Position[]>(board.tiles)
+  const displayed = useRef(displayPositions)
+
+  useLayoutEffect(() => {
+    displayed.current = displayPositions
+  }, [displayPositions])
+
+  useLayoutEffect(() => {
+    const from = displayed.current
+    const started = performance.now()
+    let frame: number
+    const tick = (now: number) => {
+      setDisplayPositions(interpolatePositions(from, board.tiles, now - started))
+      if (now - started < MOVE_MS) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [board.tiles])
 
   // 리셋해도 같은 라운드다 — 이 컴포넌트가 살아있는 동안 하나의 기록만 쌓인다.
   const [run] = useState(() => startRound(LEVELS[startLevelIndex].id, startLevelIndex, Date.now(),
@@ -146,6 +165,10 @@ export default function Board({
     x: col * cellSize + GRID_LINE + (cellSize - GRID_LINE) / 2,
     y: row * cellSize + GRID_LINE + (cellSize - GRID_LINE) / 2,
   })
+  const tileCenter = (tile: Position) => {
+    const position = displayPositions.find((p) => p.id === tile.id) ?? tile
+    return center(position.row, position.col)
+  }
 
   return (
     <section className="board-screen">
@@ -190,10 +213,10 @@ export default function Board({
               const a = board.tiles.find((t) => t.id === bond.a)
               const b = board.tiles.find((t) => t.id === bond.b)
               if (!a || !b) return []
-              const p1 = center(a.row, a.col)
-              const p2 = center(b.row, b.col)
+              const p1 = tileCenter(a)
+              const p2 = tileCenter(b)
               // + 표시를 통한 대각선 결합도 있으므로 결합선에 수직인 방향으로 평행이동한다.
-              const len = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+              const len = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1
               const ox = (-(p2.y - p1.y) / len) * BOND_GAP
               const oy = ((p2.x - p1.x) / len) * BOND_GAP
               return Array.from({ length: bond.order }, (_, i) => {
@@ -238,8 +261,8 @@ export default function Board({
               data-tutorial={tile.id === board.controlledId ? 'player' : undefined}
               style={{
                 position: 'absolute',
-                top: center(tile.row, tile.col).y - atomSize / 2,
-                left: center(tile.row, tile.col).x - atomSize / 2,
+                top: tileCenter(tile).y - atomSize / 2,
+                left: tileCenter(tile).x - atomSize / 2,
                 width: atomSize,
                 height: atomSize,
                 display: 'flex',
@@ -253,7 +276,6 @@ export default function Board({
                 background: `var(--el-${tile.symbol.toLowerCase()}, var(--atom-fallback))`,
                 backgroundClip: 'padding-box', // 검은 C에서도 조종 점선이 묻히지 않게
                 color: ['O', 'N', 'C'].includes(tile.symbol) ? 'var(--text-on-color)' : undefined,
-                transition: 'top 120ms, left 120ms',
               }}
             >
               {tile.id === board.controlledId && (
