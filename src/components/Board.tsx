@@ -182,8 +182,7 @@ export default function Board({
       <p className="board-header">
         레벨: <strong>{name}</strong>
       </p>
-      {!cleared && <div inert={exitPending}>{saveNotice}</div>}
-      {exitPending && <p role="status">플레이 기록 전송 중…</p>}
+      {!cleared && saveNotice && <div inert={exitPending}>{saveNotice}</div>}
       <div className="board-controls-hint" data-tutorial="recovery">
         <p>되돌리기 : {keyLabel(bindings.undo)}</p>
         <p>리셋 : {keyLabel(bindings.reset)}</p>
@@ -302,7 +301,7 @@ export default function Board({
           <div className="clear-popup-card">
             <h2>클리어! {targetMolecule}</h2>
             <p>{explanation ? explanation : '(설명 준비 중)'}</p>
-            <div inert={exitPending}>{saveNotice}</div>
+            {saveNotice && <div inert={exitPending}>{saveNotice}</div>}
             <p className="clear-popup-hint">
               선택 키({keyLabel(bindings.select)}) : 레벨 선택 / 종료 키({keyLabel(bindings.exit)}) : 처음 화면
             </p>

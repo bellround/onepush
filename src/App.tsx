@@ -29,7 +29,10 @@ function App() {
   const generation = useRef(0)
   const authBusy = useRef(false)
   const saving = useRef(false)
-  const [save, setSave] = useState<{ index: number; username: string; status: 'pending' | 'error' | 'saved'; error?: string; reauthenticate?: boolean } | null>(null)
+  const [save, setSave] = useState<{ index: number; username: string; status: 'pending' | 'error' | 'saved'; reauthenticate?: boolean } | null>(null)
+  // Keep failed progress separate from the visible screen and from other accounts.
+  const pendingClears = useRef(new Map<string, number>())
+  const saveBlocking = save?.status === 'pending' || !!save?.reauthenticate
   const [recoveryPassword, setRecoveryPassword] = useState('')
   const [recoveryError, setRecoveryError] = useState('')
   const [playingIndex, setPlayingIndex] = useState(0)
@@ -122,7 +125,7 @@ function App() {
   }
 
   async function logout() {
-    if (authBusy.current || saving.current || (save && save.status !== 'saved')) return
+    if (authBusy.current || saving.current || saveBlocking) return
     authBusy.current = true
     suspendRoundAccount()
     const request = ++generation.current
@@ -146,6 +149,8 @@ function App() {
   }
 
   const persistClear = useCallback(async (index: number, expectedUsername: string) => {
+    index = Math.max(index, pendingClears.current.get(expectedUsername) ?? index)
+    pendingClears.current.set(expectedUsername, index)
     if (saving.current) return
     saving.current = true
     const request = generation.current
@@ -156,13 +161,30 @@ function App() {
       if (request !== generation.current) return
       if (result.username !== expectedUsername) throw new AccountError('계정이 변경되었습니다. 다시 로그인해 주세요.', 409)
       setAccount(result)
+      if (pendingClears.current.get(expectedUsername) === index) pendingClears.current.delete(expectedUsername)
       setSave({ index, username: expectedUsername, status: 'saved' })
     } catch (error) {
-      if (request === generation.current) setSave({ index, username: expectedUsername, status: 'error', error: error instanceof Error ? error.message : '진행 상황을 저장하지 못했습니다.', reauthenticate: error instanceof AccountError && (error.status === 401 || error.status === 409) })
+      if (request === generation.current) setSave({ index, username: expectedUsername, status: 'error', reauthenticate: error instanceof AccountError && (error.status === 401 || error.status === 409) })
     } finally {
       saving.current = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!account || saveBlocking) return
+    const retry = () => {
+      const index = pendingClears.current.get(account.username)
+      if (index !== undefined && !authBusy.current) void persistClear(index, account.username)
+    }
+    const timer = window.setTimeout(retry, 5000)
+    window.addEventListener('online', retry)
+    window.addEventListener('focus', retry)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('online', retry)
+      window.removeEventListener('focus', retry)
+    }
+  }, [account, save, saveBlocking, persistClear])
 
   // 게스트는 저장 실패가 없다 — 네트워크 없이 로컬에만 기록한다.
   const clearGuest = useCallback((index: number) => {
@@ -182,6 +204,7 @@ function App() {
     const result = await resetAccountProgress(password)
     if (request !== generation.current) return
     setAccount(result)
+    pendingClears.current.delete(account.username)
     setLastCleared(null)
     setSave(null)
   }, [account])
@@ -210,27 +233,16 @@ function App() {
     }
   }
 
-  const saveNotice = save && save.status !== 'saved' && (
+  const saveNotice = save?.status === 'error' && save.reauthenticate && (
     <div className="account-save" onKeyDown={event => event.stopPropagation()}>
-      <span role="status">{save.status === 'pending' ? '진행 상황 저장 중…' : `${save.error} 저장되지 않았습니다.`}</span>
-      {save.status === 'error' && <>
-        {save.reauthenticate ? <form className="account-form" onSubmit={recover} aria-busy={busy}>
-          <p>진행 상황을 저장하려면 원래 계정으로 다시 로그인해 주세요.</p>
-          <label htmlFor="recovery-username">아이디</label>
-          <input id="recovery-username" autoComplete="username" value={save.username} readOnly />
-          <label htmlFor="recovery-password">비밀번호</label>
-          <input id="recovery-password" type="password" autoComplete="current-password" value={recoveryPassword} onChange={event => setRecoveryPassword(event.target.value)} disabled={busy} required />
-          {recoveryError && <p role="alert">{recoveryError}</p>}
-          <button type="submit" className="btn" disabled={busy || !recoveryPassword}>{busy ? '확인 중…' : '다시 로그인하고 저장'}</button>
-        </form> : <button type="button" className="btn" disabled={busy} onClick={() => void persistClear(save.index, save.username)}>저장 다시 시도</button>}
-        <button type="button" className="btn" disabled={busy} onClick={() => {
-          if (authBusy.current || saving.current || !window.confirm('저장하지 않은 이번 클리어 진행을 버릴까요?')) return
-          generation.current++
-          setSave(null)
-          setRecoveryPassword('')
-          setRecoveryError('')
-        }}>저장하지 않은 진행 버리기</button>
-      </>}
+      <form className="account-form" onSubmit={recover} aria-busy={busy}>
+        <label htmlFor="recovery-username">아이디</label>
+        <input id="recovery-username" autoComplete="username" value={save.username} readOnly />
+        <label htmlFor="recovery-password">비밀번호</label>
+        <input id="recovery-password" type="password" autoComplete="current-password" value={recoveryPassword} onChange={event => setRecoveryPassword(event.target.value)} disabled={busy} required />
+        {recoveryError && <p role="alert">{recoveryError}</p>}
+        <button type="submit" className="btn" disabled={busy || !recoveryPassword}>{busy ? '확인 중…' : '다시 로그인'}</button>
+      </form>
     </div>
   )
 
@@ -278,8 +290,7 @@ function App() {
         progress={progress}
         focusLevel={lastCleared ?? Math.max(progress - 1, 0)}
         onSelect={(i) => {
-          if (authBusy.current || saving.current || (save && save.status !== 'saved') || i > progress) return
-          setSave(null)
+          if (authBusy.current || saving.current || saveBlocking || i > progress) return
           setPlayingIndex(i)
           setScreen('playing')
         }}
@@ -333,7 +344,7 @@ function App() {
         <button
           type="button"
           className="btn"
-          disabled={!!account && (busy || !restored || (save !== null && save.status !== 'saved'))}
+          disabled={!!account && (busy || !restored || saveBlocking)}
           onClick={() => { setError(''); setScreen(account || guest ? 'levels' : 'account') }}
         >
           게임 시작
@@ -355,7 +366,7 @@ function App() {
       </div>}
       {account && <div className="account-identity">
         <span><strong>{account.username}</strong> 님</span>
-        <button type="button" className="btn" disabled={busy || (save !== null && save.status !== 'saved')} onClick={() => void logout()}>로그아웃</button>
+        <button type="button" className="btn" disabled={busy || saveBlocking} onClick={() => void logout()}>로그아웃</button>
       </div>}
     </section>
   )
