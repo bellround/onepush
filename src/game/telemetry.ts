@@ -1,5 +1,10 @@
 import type { Board, Direction } from './types.ts'
 import { apiUrl } from '../platform.ts'
+import { roundQueue, type PendingRound, type RoundQueue } from './roundQueue.ts'
+
+let queue = roundQueue
+// Tests inject a queue implementation; production never falls back to volatile storage.
+export function setRoundQueueForTests(value: RoundQueue): void { queue = value }
 
 // 한 라운드(= 레벨 1회 플레이) 동안 일어난 조작 하나.
 export interface RoundAction {
@@ -11,6 +16,7 @@ export interface RoundAction {
 
 // 플레이 중 쌓아가는 진행 상태 (mutable).
 export interface RoundRun {
+  sessionId?: string
   roundId: string
   revision: number
   owner: RoundOwner
@@ -23,6 +29,7 @@ export interface RoundRun {
 
 // 라운드가 끝날 때 서버로 보내는 한 줄.
 export interface RoundRecord {
+  sessionId?: string
   roundId: string
   revision: number
   owner: RoundOwner
@@ -30,7 +37,7 @@ export interface RoundRecord {
   levelIndex: number
   cleared: boolean
   clearMs: number | null // 클리어까지 걸린 시간, 못 깼으면 null
-  quitMs: number | null // 포기(종료) 시점, 깼으면 null
+  quitMs: number | null // 명시적 종료 시점. 클리어 또는 진행 중 관측이면 null
   advancedAfterClear: boolean // 클리어 후 선택 키로 넘어갔는가
   resetCount: number
   undoCount: number
@@ -61,6 +68,14 @@ export function recordClear(run: RoundRun, now = Date.now()): void {
 }
 
 export function finishRound(run: RoundRun, advancedAfterClear: boolean, now = Date.now()): RoundRecord {
+  return snapshotRound(run, advancedAfterClear, run.clearMs === null ? now - run.startedAt : null)
+}
+
+export function checkpointRound(run: RoundRun): RoundRecord {
+  return snapshotRound(run, false, null)
+}
+
+function snapshotRound(run: RoundRun, advancedAfterClear: boolean, quitMs: number | null): RoundRecord {
   const moves = run.actions.filter((a) => a.kind === 'move')
   let maxGapMs: number | null = null
   for (let i = 1; i < moves.length; i++) {
@@ -68,6 +83,7 @@ export function finishRound(run: RoundRun, advancedAfterClear: boolean, now = Da
     if (maxGapMs === null || gap > maxGapMs) maxGapMs = gap
   }
   return {
+    sessionId: run.sessionId ??= sessionId(),
     roundId: run.roundId,
     revision: ++run.revision,
     owner: { ...run.owner },
@@ -75,7 +91,7 @@ export function finishRound(run: RoundRun, advancedAfterClear: boolean, now = Da
     levelIndex: run.levelIndex,
     cleared: run.clearMs !== null,
     clearMs: run.clearMs,
-    quitMs: run.clearMs === null ? now - run.startedAt : null,
+    quitMs,
     advancedAfterClear,
     resetCount: run.actions.filter((a) => a.kind === 'reset').length,
     undoCount: run.actions.filter((a) => a.kind === 'undo').length,
@@ -100,11 +116,6 @@ function sessionId(): string {
   }
 }
 
-const QUEUE_PREFIX = 'round-queue:v1:'
-interface PendingRound {
-  record: RoundRecord & { sessionId: string }
-  blocked?: 'account' | 'invalid'
-}
 export type DeliveryResult = 'sent' | 'queued' | 'storage-error'
 let confirmedUsername: string | null = null
 let accountVersion = 0
@@ -118,19 +129,6 @@ function storageFailure(error: unknown): void {
   console.error('Round queue storage failed; recording is not guaranteed.', error)
 }
 
-function pendingRounds(): PendingRound[] {
-  const entries: PendingRound[] = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (!key?.startsWith(QUEUE_PREFIX)) continue
-    try {
-      const entry = JSON.parse(localStorage.getItem(key)!) as PendingRound
-      if (entry.record?.roundId && entry.record.owner) entries.push(entry)
-    } catch (error) { storageFailure(error) }
-  }
-  return entries
-}
-
 function scheduleRetry(): void {
   if (!running || retryTimer || retryAttempt >= 5) return
   retryTimer = setTimeout(() => {
@@ -142,7 +140,7 @@ function scheduleRetry(): void {
 async function deliver(entry: PendingRound, pagehide = false): Promise<DeliveryResult> {
   const { record } = entry
   if (entry.blocked || (record.owner.kind === 'member' && record.owner.expectedUsername !== confirmedUsername)) return 'queued'
-  const key = QUEUE_PREFIX + record.roundId
+  const key = record.roundId
   const flight = `${key}:${record.revision}`
   if (inFlight.has(flight)) return 'queued'
   const body = JSON.stringify({ ...record, ...(record.owner.kind === 'member' ? { expectedUsername: record.owner.expectedUsername } : {}) })
@@ -162,20 +160,15 @@ async function deliver(entry: PendingRound, pagehide = false): Promise<DeliveryR
       scheduleRetry()
       return 'queued'
     }
-    const current = JSON.parse(localStorage.getItem(key) ?? 'null') as PendingRound | null
-    if (current?.record.revision !== record.revision) return 'queued'
     if (response.ok) {
-      localStorage.removeItem(key)
-      return 'sent'
+      return await queue.removeIfRevision(key, record.revision) ? 'sent' : 'queued'
     }
     if (response.status === 401 || response.status === 409) {
       if (version === accountVersion) {
-        current.blocked = 'account'
-        localStorage.setItem(key, JSON.stringify(current))
+        await queue.blockIfRevision(key, record.revision, 'account', () => version === accountVersion)
       } else scheduleRetry()
     } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-      current.blocked = 'invalid'
-      localStorage.setItem(key, JSON.stringify(current))
+      await queue.blockIfRevision(key, record.revision, 'invalid')
     } else scheduleRetry()
   } catch (error) {
     storageFailure(error)
@@ -188,39 +181,35 @@ async function deliver(entry: PendingRound, pagehide = false): Promise<DeliveryR
   return 'queued'
 }
 
-export function sendRound(record: RoundRecord, pagehide = false): Promise<DeliveryResult> {
+export async function sendRound(record: RoundRecord, pagehide = false): Promise<DeliveryResult> {
   try {
-    const key = QUEUE_PREFIX + record.roundId
-    const previous = JSON.parse(localStorage.getItem(key) ?? 'null') as PendingRound | null
-    if (previous && previous.record.revision >= record.revision) return Promise.resolve('queued')
-    const entry: PendingRound = { record: { ...structuredClone(record), sessionId: sessionId() }, blocked: previous?.blocked }
-    localStorage.setItem(key, JSON.stringify(entry))
-    return deliver(entry, pagehide)
+    const entry: PendingRound = { record: { ...structuredClone(record), sessionId: record.sessionId ?? sessionId() } }
+    await queue.migrate()
+    const committed = await queue.putNewer(entry)
+    return committed ? deliver(committed, pagehide) : 'queued'
   } catch (error) {
     storageFailure(error)
-    return Promise.resolve('storage-error')
+    return 'storage-error'
   }
 }
 
 export async function flushRounds(): Promise<void> {
-  try { await Promise.all(pendingRounds().map(entry => deliver(entry))) }
+  try { await queue.migrate(); await Promise.all((await queue.list()).map(entry => deliver(entry))) }
   catch (error) { storageFailure(error) }
 }
 
 // Call only after a successful session lookup/login, never from a cached username.
-export function confirmRoundAccount(username: string | null): void {
+export function confirmRoundAccount(username: string | null): Promise<void> {
   confirmedUsername = username
-  accountVersion++
+  const version = ++accountVersion
   retryAttempt = 0
-  try {
-    for (const entry of pendingRounds()) {
-      if (entry.blocked === 'account' && (entry.record.owner.kind === 'guest' || entry.record.owner.expectedUsername === username)) {
-        delete entry.blocked
-        localStorage.setItem(QUEUE_PREFIX + entry.record.roundId, JSON.stringify(entry))
-      }
-    }
-  } catch (error) { storageFailure(error) }
-  void flushRounds()
+  return (async () => {
+    try {
+      await queue.migrate()
+      await queue.unblockAccount(username, () => version === accountVersion)
+      if (version === accountVersion) await flushRounds()
+    } catch (error) { storageFailure(error) }
+  })()
 }
 
 export function suspendRoundAccount(): void {

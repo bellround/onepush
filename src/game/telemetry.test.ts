@@ -1,11 +1,14 @@
 /// <reference types="node" />
 import { beforeEach, afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { confirmRoundAccount, finishRound, flushRounds, recordAction, recordClear, sendRound, startRound, suspendRoundAccount } from './telemetry.ts'
+import { checkpointRound, confirmRoundAccount, finishRound, flushRounds, recordAction, recordClear, sendRound, setRoundQueueForTests, startRound, suspendRoundAccount } from './telemetry.ts'
+import type { PendingRound, RoundQueue } from './roundQueue.ts'
 
 const originalFetch = globalThis.fetch
 const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 let entries: Map<string, string>
+let queue: RoundQueue
+const tick = () => new Promise(resolve => setImmediate(resolve))
 beforeEach(() => {
   entries = new Map()
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
@@ -15,6 +18,37 @@ beforeEach(() => {
     setItem: (key: string, value: string) => { entries.set(key, value) },
     removeItem: (key: string) => { entries.delete(key) },
   } })
+  const get = (id: string): PendingRound | undefined => { const raw = entries.get(id); return raw ? JSON.parse(raw) : undefined }
+  queue = {
+    async migrate() {},
+    async putNewer(entry) {
+      const previous = get(entry.record.roundId)
+      if (previous && previous.record.revision >= entry.record.revision) return null
+      const next = { ...entry, blocked: previous?.blocked ?? entry.blocked }
+      entries.set(entry.record.roundId, JSON.stringify(next))
+      return structuredClone(next)
+    },
+    async list() { return [...entries.values()].map(raw => JSON.parse(raw)) },
+    async removeIfRevision(id, revision) {
+      if (get(id)?.record.revision !== revision) return false
+      entries.delete(id)
+      return true
+    },
+    async blockIfRevision(id, revision, blocked, valid = () => true) {
+      const entry = get(id)
+      if (entry?.record.revision === revision && valid()) entries.set(id, JSON.stringify({ ...entry, blocked }))
+    },
+    async unblockAccount(username, valid) {
+      for (const [id] of entries) {
+        const entry = get(id)!
+        if (valid() && entry.blocked === 'account' && (entry.record.owner.kind === 'guest' || entry.record.owner.expectedUsername === username)) {
+          delete entry.blocked
+          entries.set(id, JSON.stringify(entry))
+        }
+      }
+    },
+  }
+  setRoundQueueForTests(queue)
   suspendRoundAccount()
 })
 afterEach(() => {
@@ -53,7 +87,7 @@ test('telemetry sends captured identity and releases caller on timeout or failur
   }
 })
 
-test('guest clear is persisted synchronously and later exit has an independent revision', async () => {
+test('guest clear is committed before fetch and later exit has an independent revision', async () => {
   const run = startRound('ch1-1', 0, 0)
   globalThis.fetch = async (_url, init) => {
     const payload = JSON.parse(init!.body as string)
@@ -67,6 +101,7 @@ test('guest clear is persisted synchronously and later exit has an independent r
   recordClear(run, 10)
   const clear = finishRound(run, false, 10)
   const sending = sendRound(clear)
+  await tick()
   assert.equal(entries.size, 1)
   recordAction(run, 'undo', null, null, 20)
   const exit = finishRound(run, true, 30)
@@ -98,9 +133,10 @@ test('a stale ACK never deletes a newer revision', async () => {
   let resolve!: (response: Response) => void
   globalThis.fetch = () => new Promise<Response>(done => { resolve = done })
   const run = startRound('ch1-1', 0)
-  const first = sendRound(finishRound(run, false))
+  const first = sendRound(checkpointRound(run))
+  await tick()
   globalThis.fetch = async () => new Response(null, { status: 503 })
-  await sendRound(finishRound(run, true))
+  await sendRound(checkpointRound(run))
   resolve(new Response(null, { status: 204 }))
   await first
   assert.equal(JSON.parse([...entries.values()][0]).record.revision, 2)
@@ -165,11 +201,93 @@ test('storage failure is reported, not silently treated as successful delivery',
   const originalError = console.error
   let errors = 0
   console.error = () => { errors++ }
-  localStorage.setItem = () => { throw new Error('quota') }
+  queue.putNewer = async () => { throw new Error('quota') }
   globalThis.fetch = async () => { assert.fail('must persist before fetching') }
   try {
     assert.equal(await sendRound(finishRound(startRound('ch1-1', 0), false)), 'storage-error')
-    assert.equal(errors, 1)
+    assert.equal(await sendRound(checkpointRound(startRound('ch1-1', 0))), 'storage-error')
+    assert.equal(errors, 2)
+  } finally { console.error = originalError }
+})
+
+test('checkpoint persists before unresolved fetch and recovers unchanged for its original account', async () => {
+  confirmRoundAccount('alice')
+  const run = startRound('ch1-1', 0, 100, { kind: 'member', expectedUsername: 'alice' })
+  recordAction(run, 'move', 'up', null, 150)
+  let reject!: (error: Error) => void
+  globalThis.fetch = () => new Promise((_resolve, fail) => { reject = fail })
+  const sending = sendRound(checkpointRound(run))
+  await tick()
+  const saved = JSON.parse([...entries.values()][0]).record
+  assert.equal(saved.quitMs, null)
+  assert.equal(saved.actions.length, 1)
+  assert.equal(saved.revision, 1)
+  assert.equal(saved.sessionId, run.sessionId)
+  reject(new Error('offline'))
+  assert.equal(await sending, 'queued')
+  suspendRoundAccount()
+  const payloads: unknown[] = []
+  globalThis.fetch = async (_url, init) => {
+    payloads.push(JSON.parse(init!.body as string))
+    return new Response(null, { status: 204 })
+  }
+  confirmRoundAccount('bob')
+  await flushRounds()
+  assert.equal(payloads.length, 0)
+  confirmRoundAccount('alice')
+  await flushRounds()
+  assert.deepEqual(payloads, [{ ...saved, expectedUsername: 'alice' }])
+  assert.equal(entries.size, 0)
+})
+
+test('checkpoint revisions preserve the first clear through undo, reset and exit', () => {
+  const run = startRound('ch1-1', 0, 0)
+  const initial = checkpointRound(run)
+  assert.equal(initial.quitMs, null)
+  assert.equal(initial.cleared, false)
+  recordAction(run, 'move', 'up', null, 10)
+  recordClear(run, 10)
+  const clear = checkpointRound(run)
+  recordAction(run, 'undo', null, null, 20)
+  const undo = checkpointRound(run)
+  recordAction(run, 'reset', null, null, 30)
+  const reset = checkpointRound(run)
+  const exit = finishRound(run, false, 40)
+  for (const [index, record] of [initial, clear, undo, reset, exit].entries()) {
+    assert.equal(record.revision, index + 1)
+    assert.equal(record.roundId, initial.roundId)
+    assert.equal(record.sessionId, initial.sessionId)
+    if (index > 0) {
+      assert.equal(record.cleared, true)
+      assert.equal(record.clearMs, 10)
+      assert.equal(record.quitMs, null)
+    }
+  }
+  assert.equal(clear.actions.length, 1)
+  assert.equal(reset.resetCount, 1)
+  assert.equal(exit.undoCount, 1)
+})
+
+test('fetch waits for durable commit; rejected commit never fetches, including pagehide', async () => {
+  const put = queue.putNewer.bind(queue)
+  let complete!: () => void
+  let calls = 0
+  queue.putNewer = entry => new Promise(resolve => { complete = () => { void put(entry).then(resolve) } })
+  globalThis.fetch = async () => { calls++; return new Response(null, { status: 204 }) }
+  const record = checkpointRound(startRound('ch1-1', 0))
+  const sending = sendRound(record, true)
+  record.actions.push({ kind: 'reset', direction: null, t: 1, board: null })
+  await tick()
+  assert.equal(calls, 0)
+  complete()
+  assert.equal(await sending, 'sent')
+  assert.equal(calls, 1)
+  const originalError = console.error
+  console.error = () => {}
+  try {
+    queue.putNewer = async () => { throw new Error('strict transaction aborted') }
+    assert.equal(await sendRound(record, true), 'storage-error')
+    assert.equal(calls, 1)
   } finally { console.error = originalError }
 })
 

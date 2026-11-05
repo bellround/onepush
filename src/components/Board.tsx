@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { interpolatePositions, MOVE_MS, type Position } from './boardAnimation.ts'
 import { isCleared, pushTile } from '../game/board.ts'
 import { keyLabel, loadKeybindings } from '../game/keybindings.ts'
-import { finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
+import { checkpointRound, finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
 import { moveSound, play } from '../game/sfx.ts'
 import TutorialModal from './TutorialModal.tsx'
 import { shouldStartTutorial } from '../game/tutorialModal.ts'
@@ -74,9 +74,14 @@ export default function Board({
     guest ? { kind: 'guest' } : { kind: 'member', expectedUsername: playerUsername }))
 
   const captureClear = useCallback((nextBoard: BoardState) => {
-    if (run.clearMs !== null || !isCleared(nextBoard)) return
+    if (exiting.current || run.clearMs !== null || !isCleared(nextBoard)) return false
     recordClear(run)
-    void sendRound(finishRound(run, false))
+    void sendRound(checkpointRound(run))
+    return true
+  }, [run])
+
+  useEffect(() => {
+    if (!exiting.current) void sendRound(checkpointRound(run))
   }, [run])
 
   useEffect(() => {
@@ -124,7 +129,7 @@ export default function Board({
         e.preventDefault()
         if (history.length === 0) return
         recordAction(run, 'undo', null, null)
-        captureClear(history[history.length - 1])
+        if (!captureClear(history[history.length - 1])) void sendRound(checkpointRound(run))
         play('undo')
         setLevel((level) => ({
           ...level,
@@ -137,8 +142,10 @@ export default function Board({
       if (key === bindings.reset) {
         e.preventDefault()
         recordAction(run, 'reset', null, null)
+        const reset = levelState(levelIndex)
+        if (!captureClear(reset.board)) void sendRound(checkpointRound(run))
         play('reset')
-        setLevel(levelState(levelIndex))
+        setLevel(reset)
         return
       }
 
@@ -149,7 +156,7 @@ export default function Board({
       play(moveSound(board, newBoard))
       if (newBoard === board) return
       recordAction(run, 'move', direction, newBoard)
-      captureClear(newBoard)
+      if (!captureClear(newBoard)) void sendRound(checkpointRound(run))
       setLevel((level) => ({ ...level, board: newBoard, history: [...level.history, board] }))
     }
     window.addEventListener('keydown', handleKeyDown)
