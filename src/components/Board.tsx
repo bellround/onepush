@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { interpolatePositions, MOVE_MS, type Position } from './boardAnimation.ts'
 import { isCleared, pushTile } from '../game/board.ts'
-import { keyLabel, loadKeybindings } from '../game/keybindings.ts'
+import { ACTION_LABELS, keyLabel, loadKeybindings, type GameAction } from '../game/keybindings.ts'
+import { swipeDirection } from '../game/swipe.ts'
 import { checkpointRound, finishRound, recordAction, recordClear, sendRound, startRound } from '../game/telemetry.ts'
 import { moveSound, play } from '../game/sfx.ts'
+import { MenuIcon, ResetIcon, UndoIcon } from './icons.tsx'
 import TutorialModal from './TutorialModal.tsx'
 import { shouldStartTutorial } from '../game/tutorialModal.ts'
 import { LEVELS, loadLevel } from '../levels/index.ts'
-import type { Board as BoardState, Direction } from '../game/types.ts'
+import type { Board as BoardState } from '../game/types.ts'
 
-// 레벨마다 그리드 크기(cols/rows)가 달라도 화면에 보이는 맵 전체 크기는 항상 이 고정값 안에서만
+// 클리어 팝업에서 어디로 나가는가 — 'next'는 다음 레벨을 바로 시작한다.
+export type ExitTarget = 'next' | 'levels' | 'start'
+
+// 레벨마다 그리드 크기(cols/rows)가 달라도 화면에 보이는 맵 전체 크기는 항상 이 값 안에서만
 // 셀 크기를 다시 계산한다 (그리드가 커질수록 셀은 작아짐).
-const BOARD_VIEW = 678
-const DIRECTIONS: Direction[] = ['up', 'down', 'left', 'right']
+const BOARD_VIEW_MAX = 678
 // 이중·삼중 결합에서 결합선끼리 벌어지는 간격(px)
 const BOND_GAP = 8
 // 격자선 두께(px) — 셀 안쪽은 이 선 다음부터 시작한다.
@@ -32,7 +36,7 @@ export default function Board({
   accountBusy,
 }: {
   startLevelIndex: number
-  onExit: (levelIndex: number, cleared: boolean) => void
+  onExit: (levelIndex: number, to: ExitTarget, cleared: boolean) => void
   onClear: (levelIndex: number, expectedUsername: string) => void
   saveNotice: ReactNode
   username: string
@@ -52,6 +56,21 @@ export default function Board({
   const [exitPending, setExitPending] = useState(false)
   const [displayPositions, setDisplayPositions] = useState<Position[]>(board.tiles)
   const displayed = useRef(displayPositions)
+  // 판이 들어갈 실제 폭 — 좁은 화면에서는 이게 상한이 된다. innerWidth가 아니라 칸을 직접 재야
+  // 회전·창 크기 변화는 물론 처음 그려질 때의 폭도 어긋나지 않는다.
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState(BOARD_VIEW_MAX)
+
+  useLayoutEffect(() => {
+    const element = viewportRef.current
+    if (!element) return
+    // .board-viewport는 폭이 100%라 view에 영향을 받지 않는다 — 되먹임 없음.
+    const measure = () => setView(Math.min(BOARD_VIEW_MAX, element.clientWidth))
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   useLayoutEffect(() => {
     displayed.current = displayPositions
@@ -98,75 +117,103 @@ export default function Board({
     return () => window.removeEventListener('pagehide', pagehide)
   }, [run])
 
-  const exit = useCallback(async (advanced: boolean) => {
+  const exit = useCallback(async (to: ExitTarget) => {
     if (exiting.current || accountBusy) return
     exiting.current = true
+    // 클리어 후 넘어간 경우만 advanced — 메뉴로 나가는 것은 아니다.
+    const advanced = to !== 'start'
     advancedOnExit.current = advanced
     setExitPending(true)
     await sendRound(finishRound(run, advanced))
-    onExit(levelIndex, advanced)
-  }, [run, onExit, levelIndex, accountBusy])
+    // cleared도 넘긴다 — 'start'는 클리어 후 "메뉴로"와 중간에 그만두기 둘 다라서 구분이 필요하다.
+    onExit(levelIndex, to, cleared)
+  }, [run, onExit, levelIndex, accountBusy, cleared])
+
+  // 조작을 받지 않는 상태 — 튜토리얼 중, 나가는 중, 계정 작업 중.
+  const blocked = useCallback(() => tutorialOpen || exiting.current || accountBusy, [tutorialOpen, accountBusy])
+
+  // 키보드·스와이프·조이스틱·버튼이 모두 여기로 들어온다 — 기록과 사운드가 입력 수단마다 갈라지지 않게.
+  const perform = useCallback((action: GameAction) => {
+    if (blocked()) return
+
+    if (action === 'exit') {
+      void exit('start')
+      return
+    }
+
+    if (action === 'select') {
+      if (cleared) void exit('levels')
+      return
+    }
+
+    if (action === 'undo') {
+      if (history.length === 0) return
+      recordAction(run, 'undo', null, null)
+      if (!captureClear(history[history.length - 1])) void sendRound(checkpointRound(run))
+      play('undo')
+      setLevel((level) => ({
+        ...level,
+        board: level.history[level.history.length - 1],
+        history: level.history.slice(0, -1),
+      }))
+      return
+    }
+
+    if (action === 'reset') {
+      recordAction(run, 'reset', null, null)
+      const reset = levelState(levelIndex)
+      if (!captureClear(reset.board)) void sendRound(checkpointRound(run))
+      play('reset')
+      setLevel(reset)
+      return
+    }
+
+    const newBoard = pushTile(board, action)
+    play(moveSound(board, newBoard))
+    if (newBoard === board) return
+    recordAction(run, 'move', action, newBoard)
+    if (!captureClear(newBoard)) void sendRound(checkpointRound(run))
+    setLevel((level) => ({ ...level, board: newBoard, history: [...level.history, board] }))
+  }, [blocked, board, cleared, history, levelIndex, exit, run, captureClear])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (tutorialOpen || exiting.current || accountBusy) return
+      if (blocked()) return
       if (e.target instanceof HTMLElement && e.target.closest('input, textarea, button, form')) return
-      const key = e.code
-
-      if (key === bindings.exit) {
-        e.preventDefault()
-        void exit(false)
-        return
-      }
-
-      if (cleared && key === bindings.select) {
-        e.preventDefault()
-        void exit(true)
-        return
-      }
-
-      if (key === bindings.undo) {
-        e.preventDefault()
-        if (history.length === 0) return
-        recordAction(run, 'undo', null, null)
-        if (!captureClear(history[history.length - 1])) void sendRound(checkpointRound(run))
-        play('undo')
-        setLevel((level) => ({
-          ...level,
-          board: level.history[level.history.length - 1],
-          history: level.history.slice(0, -1),
-        }))
-        return
-      }
-
-      if (key === bindings.reset) {
-        e.preventDefault()
-        recordAction(run, 'reset', null, null)
-        const reset = levelState(levelIndex)
-        if (!captureClear(reset.board)) void sendRound(checkpointRound(run))
-        play('reset')
-        setLevel(reset)
-        return
-      }
-
-      const direction = DIRECTIONS.find((d) => bindings[d] === key)
-      if (!direction) return
+      const action = (Object.keys(bindings) as GameAction[]).find((a) => bindings[a] === e.code)
+      if (!action) return
+      // 클리어 전 선택 키는 원래 아무 동작도 없었다 — 기본 동작도 막지 않는다.
+      if (action === 'select' && !cleared) return
       e.preventDefault()
-      const newBoard = pushTile(board, direction)
-      play(moveSound(board, newBoard))
-      if (newBoard === board) return
-      recordAction(run, 'move', direction, newBoard)
-      if (!captureClear(newBoard)) void sendRound(checkpointRound(run))
-      setLevel((level) => ({ ...level, board: newBoard, history: [...level.history, board] }))
+      perform(action)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [bindings, board, cleared, history, levelIndex, exit, run, captureClear, tutorialOpen, accountBusy])
+  }, [bindings, cleared, blocked, perform])
 
-  const cellSize = Math.floor(BOARD_VIEW / Math.max(board.cols, board.rows))
+  // 보드 드래그 — 한 제스처에 한 칸.
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const onTouchStart = (event: React.TouchEvent) => {
+    touchStart.current = event.touches.length === 1
+      ? { x: event.touches[0].clientX, y: event.touches[0].clientY }
+      : null
+  }
+  const onTouchEnd = (event: React.TouchEvent) => {
+    const start = touchStart.current
+    touchStart.current = null
+    if (!start || event.changedTouches.length !== 1) return
+    const direction = swipeDirection(
+      event.changedTouches[0].clientX - start.x,
+      event.changedTouches[0].clientY - start.y,
+    )
+    if (direction) perform(direction)
+  }
+
+  const cellSize = Math.floor(view / Math.max(board.cols, board.rows))
   const atomSize = Math.round((cellSize - GRID_LINE) * 0.8)
   const width = board.cols * cellSize
   const height = board.rows * cellSize
+  const hasNextLevel = levelIndex + 1 < LEVELS.length
   // 셀 안쪽(격자선 제외) 한가운데
   const center = (row: number, col: number) => ({
     x: col * cellSize + GRID_LINE + (cellSize - GRID_LINE) / 2,
@@ -187,12 +234,34 @@ export default function Board({
         <p>되돌리기 : {keyLabel(bindings.undo)}</p>
         <p>리셋 : {keyLabel(bindings.reset)}</p>
       </div>
+      {/* 모바일 전용 조작 — 데스크톱에서는 CSS가 숨긴다. */}
+      <div className="board-mobile-controls">
+        <div className="board-mobile-top">
+          <button type="button" className="board-icon-btn" aria-label="메뉴" onClick={() => perform('exit')}>
+            <MenuIcon />
+          </button>
+          <button type="button" className="board-icon-btn" aria-label={ACTION_LABELS.reset} onClick={() => perform('reset')}>
+            <ResetIcon />
+          </button>
+        </div>
+        <button
+          type="button"
+          className="board-icon-btn board-undo-btn"
+          aria-label={ACTION_LABELS.undo}
+          disabled={history.length === 0}
+          onClick={() => perform('undo')}
+        >
+          <UndoIcon />
+        </button>
+      </div>
       <TutorialModal open={tutorialOpen} onOpenChange={setTutorialOpen} username={playerUsername} />
-      {/* 가로는 레벨이 바뀌어도 고정, 세로는 격자만큼만 — 아래 안내가 창 밖으로 밀리지 않게. */}
-      <div className="board-viewport" style={{ width: BOARD_VIEW, height }}>
+      {/* 가로는 칸이 주는 폭을 그대로 쓰고, 세로는 격자만큼만 — 아래 안내가 창 밖으로 밀리지 않게. */}
+      <div className="board-viewport" ref={viewportRef} style={{ height }}>
         <div
           className="board-grid"
           data-tutorial="goal"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
           style={{
             width,
             height,
@@ -302,6 +371,19 @@ export default function Board({
             <h2>클리어! {targetMolecule}</h2>
             <p>{explanation ? explanation : '(설명 준비 중)'}</p>
             {saveNotice && <div inert={exitPending}>{saveNotice}</div>}
+            <div className="clear-popup-actions">
+              {hasNextLevel && (
+                <button type="button" className="btn btn--primary" disabled={exitPending} onClick={() => void exit('next')}>
+                  다음 단계로
+                </button>
+              )}
+              <button type="button" className="btn btn--outline" disabled={exitPending} onClick={() => void exit('levels')}>
+                챕터로
+              </button>
+              <button type="button" className="btn btn--outline" disabled={exitPending} onClick={() => void exit('start')}>
+                메뉴로
+              </button>
+            </div>
             <p className="clear-popup-hint">
               선택 키({keyLabel(bindings.select)}) : 레벨 선택 / 종료 키({keyLabel(bindings.exit)}) : 처음 화면
             </p>

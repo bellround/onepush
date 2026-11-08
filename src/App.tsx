@@ -303,19 +303,21 @@ function App() {
   if (screen === 'playing' && (account || guest)) {
     return (
       <Board
+        // startLevelIndex는 초기 상태로만 쓰이므로 다음 레벨로 넘어갈 때는 리마운트해야 한다.
+        key={playingIndex}
         startLevelIndex={playingIndex}
         username={account ? account.username : GUEST_USERNAME}
         guest={!account}
         accountBusy={account ? busy : false}
         onClear={account ? persistClear : clearGuest}
         saveNotice={saveNotice}
-        onExit={(levelIndex, cleared) => {
-          if (!cleared) {
-            setScreen('start')
+        onExit={(levelIndex, to, cleared) => {
+          if (cleared) setLastCleared(levelIndex)
+          if (to === 'next') {
+            setPlayingIndex(levelIndex + 1)
             return
           }
-          setLastCleared(levelIndex)
-          setScreen('levels')
+          setScreen(to === 'levels' ? 'levels' : 'start')
         }}
       />
     )

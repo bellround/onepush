@@ -166,7 +166,8 @@ export default function Settings({
     <section className="settings">
       <h1>설정</h1>
       <div className="settings-actions">
-        <button type="button" className="btn" onClick={() => setView('controls')}>
+        {/* 키보드가 없는 화면에서는 CSS가 숨긴다. */}
+        <button type="button" className="btn settings-controls-btn" onClick={() => setView('controls')}>
           조작키
         </button>
         <button

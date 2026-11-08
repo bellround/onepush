@@ -108,6 +108,11 @@
   background: var(--transparent);
 }
 
+/* 모바일에서는 좌상단 키 안내가 숨겨지므로 그 자리를 비워 둘 필요가 없다. */
+@media (max-width: 768px) {
+  .tutorial-panel { width: calc(100% - 32px); }
+}
+
 @media (max-width: 400px) {
   .tutorial-panel { padding: 16px; }
 }
