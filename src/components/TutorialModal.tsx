@@ -55,22 +55,28 @@ export default function TutorialModal({ open, onOpenChange, username }: { open: 
   useEffect(() => {
     if (!open) return
     heading.current?.focus({ preventScroll: true })
-    const target = document.querySelector<HTMLElement>(`[data-tutorial="${current.target}"]`)
-    if (!target) return
+    let frame: number
+    // 판 크기는 ResizeObserver가 첫 페인트 뒤에 정한다 — 한 번만 재면 옛 좌표가 그대로 남는다.
+    // ponytail: 매 프레임 재측정. 안내 중에는 조작이 막혀 있어 ResizeObserver로도 되지만,
+    // rAF 한 줄이 글꼴 로딩·스크롤바 같은 다른 흔들림까지 같이 잡는다.
     const update = () => {
-      const rect = target.getBoundingClientRect()
-      Object.assign(spotlight.current!.style, {
-        left: `${rect.left - 6}px`, top: `${rect.top - 6}px`,
-        width: `${rect.width + 12}px`, height: `${rect.height + 12}px`,
-      })
+      const target = document.querySelector<HTMLElement>(`[data-tutorial="${current.target}"]`)
+      const spot = spotlight.current!
+      if (target) {
+        const rect = target.getBoundingClientRect()
+        Object.assign(spot.style, {
+          display: '',
+          left: `${rect.left - 6}px`, top: `${rect.top - 6}px`,
+          width: `${rect.width + 12}px`, height: `${rect.height + 12}px`,
+        })
+      } else {
+        // 없는 곳을 비추느니 아무 데도 안 비춘다 — 이전 단계의 네모가 남지 않게.
+        spot.style.display = 'none'
+      }
+      frame = requestAnimationFrame(update)
     }
-    update()
-    window.addEventListener('scroll', update, true)
-    window.addEventListener('resize', update)
-    return () => {
-      window.removeEventListener('scroll', update, true)
-      window.removeEventListener('resize', update)
-    }
+    frame = requestAnimationFrame(update)
+    return () => cancelAnimationFrame(frame)
   }, [open, step, current.target])
 
   return (

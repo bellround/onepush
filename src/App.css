@@ -607,6 +607,41 @@
     font-size: 20px;
   }
 
+  /* 챕터 이동: 데스크톱은 목록 바깥에 화살표를 띄우는데 좁은 화면에서는 창 밖으로 나간다.
+     제목 줄 양옆으로 세운다 — .level-chapter에 display:contents를 줘서 제목과 목록을
+     바깥 grid에 직접 놓으면 마크업을 안 건드려도 된다. */
+  .chapter-nav {
+    display: grid;
+    grid-template-areas:
+      'prev title next'
+      'list list list';
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    width: 100%;
+    max-width: 420px;
+  }
+  .level-chapter {
+    display: contents;
+  }
+  .chapter-arrow {
+    position: static;
+    padding: 14px 16px;
+  }
+  .chapter-arrow--prev {
+    grid-area: prev;
+  }
+  .chapter-arrow--next {
+    grid-area: next;
+  }
+  .level-chapter-title {
+    grid-area: title;
+    font-size: 28px;
+    margin: 0 0 20px;
+  }
+  .level-list {
+    grid-area: list;
+  }
+
   /* 도감: 카드 한 장이 폭을 다 쓰고, ◀ ▶ 는 아래로 내린다.
      마크업 순서(버튼-그리드-버튼)를 안 바꿔도 되게 grid 영역으로 자리를 잡는다. */
   .dex-pager {
