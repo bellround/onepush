@@ -1,6 +1,6 @@
 import { apiUrl } from '../platform.ts'
 
-export type PlayerAccount = { username: string; progress: number }
+export type PlayerAccount = { username: string; progress: number; keybindings: Record<string, string> | null }
 
 export class AccountError extends Error {
   status: number
@@ -50,7 +50,7 @@ async function account(response: Response): Promise<PlayerAccount> {
   try {
     const value = await response.json() as PlayerAccount
     if (typeof value.username !== 'string' || !Number.isInteger(value.progress) || value.progress < 0) throw new Error()
-    return { username: value.username, progress: value.progress }
+    return { username: value.username, progress: value.progress, keybindings: value.keybindings ?? null }
   } catch { throw new AccountError('서버 응답을 확인할 수 없습니다. 다시 시도해 주세요.', response.status) }
 }
 
@@ -74,4 +74,9 @@ export async function logoutAccount(): Promise<void> {
 
 export async function saveAccountProgress(levelId: string, expectedUsername: string): Promise<PlayerAccount> {
   return account(await request('/account/progress', { levelId, expectedUsername }))
+}
+
+// 조작키를 계정에 저장한다 — 다른 기기에서 로그인해도 같은 키로 플레이한다.
+export async function saveAccountKeybindings(bindings: Record<string, string>): Promise<PlayerAccount> {
+  return account(await request('/account/keybindings', { keybindings: bindings }))
 }

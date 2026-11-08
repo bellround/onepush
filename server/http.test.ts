@@ -165,3 +165,33 @@ test('admin auth, origin, logout, cursor, errors and stripped routes', async () 
     assert.equal((await fetch(`${root}/api/admin/login`, { method: 'POST', headers: { origin }, body: '{"password":"test-only"}' })).status, 200)
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())) }
 })
+
+test('keybindings save requires a session, validates the payload, and returns the stored bindings', async () => {
+  let stored: unknown = null
+  let signedIn = true
+  const db = { query: async (sql: string, args: unknown[]) => {
+    if (sql.includes('JOIN player_sessions')) return { rows: signedIn ? [{ id: '1', username: 'Kim', progress: 3, keybindings: stored }] : [] }
+    if (sql.includes('SET keybindings')) { stored = JSON.parse(args[1] as string); return { rows: [{ id: '1', username: 'Kim', progress: 3, keybindings: stored }] } }
+    return { rows: [] }
+  } } as unknown as Pool
+  const server = createApp(db, { password: 'test-only', levelIds: ['ch1-1'] })
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  const root = `http://127.0.0.1:${(server.address() as { port: number }).port}`
+  const headers = { origin: root, cookie: `ion_player=${'a'.repeat(64)}` }
+  const save = (payload: unknown, h = headers) =>
+    fetch(`${root}/api/account/keybindings`, { method: 'POST', headers: h, body: JSON.stringify(payload) })
+  try {
+    const bindings = { up: 'KeyW', down: 'KeyS', undo: 'KeyQ' }
+    const saved = await save({ keybindings: bindings })
+    assert.equal(saved.status, 200)
+    assert.deepEqual(await saved.json(), { username: 'Kim', progress: 3, keybindings: bindings })
+    // 저장된 값은 로그인한 계정을 다시 읽을 때 그대로 돌아온다.
+    assert.deepEqual(await (await fetch(`${root}/api/account`, { headers })).json(), { username: 'Kim', progress: 3, keybindings: bindings })
+    for (const bad of [{ fly: 'KeyW' }, { up: 'Key W' }, { up: 1 }, { up: '' }, {}, [], 'KeyW', null]) {
+      assert.equal((await save({ keybindings: bad })).status, 400, JSON.stringify(bad))
+    }
+    assert.equal((await save({ keybindings: bindings }, { ...headers, origin: 'https://evil.test' })).status, 403)
+    signedIn = false
+    assert.equal((await save({ keybindings: bindings })).status, 401)
+  } finally { await new Promise<void>(resolve => server.close(() => resolve())) }
+})

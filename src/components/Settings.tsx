@@ -17,10 +17,13 @@ export default function Settings({
   onBack,
   resetMode,
   onReset,
+  onBindingsChange,
 }: {
   onBack: () => void
   resetMode: 'account' | 'guest' | null
   onReset: (password: string) => Promise<void>
+  // 로그인 상태에서만 주어진다 — 바뀐 조작키를 계정에도 저장한다.
+  onBindingsChange?: (bindings: Record<GameAction, string>) => void
 }) {
   const [view, setView] = useState<View>('menu')
   const [bindings, setBindings] = useState(loadKeybindings)
@@ -55,13 +58,14 @@ export default function Settings({
       setBindings((prev) => {
         const next = { ...prev, [action]: e.code }
         saveKeybindings(next)
+        onBindingsChange?.(next)
         return next
       })
       setListening(null)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [listening])
+  }, [listening, onBindingsChange])
 
   // 키 입력을 기다리는 중이 아닐 때는 종료 키를 누르면 바로 처음 화면으로.
   useEffect(() => {
@@ -106,6 +110,7 @@ export default function Settings({
             onClick={() => {
               setBindings({ ...DEFAULT_KEYBINDINGS })
               saveKeybindings({ ...DEFAULT_KEYBINDINGS })
+              onBindingsChange?.({ ...DEFAULT_KEYBINDINGS })
             }}
           >
             기본값으로 초기화

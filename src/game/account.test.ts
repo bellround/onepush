@@ -11,7 +11,7 @@ test('account client contract, credentials, errors and no local progress import'
     return new Response(status === 204 ? null : JSON.stringify({ username: 'player', progress: 2 }), { status })
   }) as typeof fetch
   try {
-    assert.deepEqual(await enterAccount('player', 'password'), { username: 'player', progress: 2 })
+    assert.deepEqual(await enterAccount('player', 'password'), { username: 'player', progress: 2, keybindings: null })
     assert.deepEqual(JSON.parse(calls[0].init!.body as string), { username: 'player', password: 'password' })
     assert.equal(calls[0].init!.credentials, 'same-origin')
     await saveAccountProgress('ch1-2', 'player')
@@ -44,10 +44,10 @@ test('guest progress merge, progress reset and server-provided messages', async 
     await enterAccount('kim', 'password')
     assert.deepEqual(JSON.parse(calls[0].init!.body as string), { username: 'kim', password: 'password' })
     // 서버가 돌려주는 원본 표기를 그대로 쓴다.
-    assert.deepEqual(await enterAccount('KIM', 'password', 5), { username: 'Kim', progress: 7 })
+    assert.deepEqual(await enterAccount('KIM', 'password', 5), { username: 'Kim', progress: 7, keybindings: null })
     assert.deepEqual(JSON.parse(calls[1].init!.body as string), { username: 'KIM', password: 'password', guestProgress: 5 })
     body = { username: 'Kim', progress: 0 }
-    assert.deepEqual(await resetAccountProgress('password'), { username: 'Kim', progress: 0 })
+    assert.deepEqual(await resetAccountProgress('password'), { username: 'Kim', progress: 0, keybindings: null })
     assert.match(calls.at(-1)!.url, /\/account\/reset$/)
     assert.deepEqual(JSON.parse(calls.at(-1)!.init!.body as string), { password: 'password' })
     // 서버가 보낸 안내가 고정 문구보다 우선한다.

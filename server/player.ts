@@ -3,7 +3,7 @@ import type { IncomingMessage } from 'node:http'
 import type { Pool } from 'pg'
 
 type Db = Pick<Pool, 'query'>
-export type Player = { id: string; username: string; progress: number }
+export type Player = { id: string; username: string; progress: number; keybindings?: Record<string, string> | null }
 const TTL = 30 * 24 * 60 * 60
 const COOKIE = 'ion_player'
 const digest = (token: string) => createHash('sha256').update(token).digest('hex')
@@ -47,7 +47,7 @@ export function playerCookie(token: string, base: string, secure: boolean, clear
 export async function getPlayer(db: Db, req: IncomingMessage): Promise<Player | null> {
   const token = sessionToken(req)
   if (!token) return null
-  const result = await db.query(`SELECT p.id::text, p.username, p.progress FROM players p
+  const result = await db.query(`SELECT p.id::text, p.username, p.progress, p.keybindings FROM players p
     JOIN player_sessions s ON s.player_id = p.id WHERE s.token_hash = $1 AND s.expires_at > now()`, [digest(token)])
   return result.rows[0] ?? null
 }
@@ -57,7 +57,7 @@ export async function revokeSession(db: Db, req: IncomingMessage): Promise<void>
   if (token) await db.query('DELETE FROM player_sessions WHERE token_hash = $1', [digest(token)])
 }
 
-const FIND_PLAYER = 'SELECT id::text, username, progress, password_hash FROM players WHERE username_key = lower(normalize($1, NFC))'
+const FIND_PLAYER = 'SELECT id::text, username, progress, keybindings, password_hash FROM players WHERE username_key = lower(normalize($1, NFC))'
 
 // 최소 길이는 신규 가입에만 적용한다 — 이미 짧은 비밀번호로 가입한 계정을 잠그지 않는다.
 export async function enterPlayer(db: Db, username: string, password: string): Promise<Player | 'weak-password' | null> {
@@ -67,12 +67,12 @@ export async function enterPlayer(db: Db, username: string, password: string): P
     const hash = await hashPassword(password)
     // 대상 없는 ON CONFLICT — username과 username_key 유니크 제약 양쪽을 모두 받는다.
     result = await db.query(`INSERT INTO players (username, password_hash) VALUES ($1, $2)
-      ON CONFLICT DO NOTHING RETURNING id::text, username, progress, password_hash`, [username, hash])
+      ON CONFLICT DO NOTHING RETURNING id::text, username, progress, keybindings, password_hash`, [username, hash])
     // A concurrent registration must authenticate against the winning password.
     if (!result.rows.length) result = await db.query(FIND_PLAYER, [username])
   }
   const player = result.rows[0]
-  return player && await verifyPassword(password, player.password_hash) ? { id: player.id, username: player.username, progress: player.progress } : null
+  return player && await verifyPassword(password, player.password_hash) ? { id: player.id, username: player.username, progress: player.progress, keybindings: player.keybindings ?? null } : null
 }
 
 export async function newSession(db: Db, player: Player): Promise<string> {
@@ -84,14 +84,20 @@ export async function newSession(db: Db, player: Player): Promise<string> {
 
 export async function saveProgress(db: Db, player: Player, index: number): Promise<Player | null> {
   const result = await db.query(`UPDATE players SET progress = GREATEST(progress, $2::integer + 1)
-    WHERE id = $1 AND progress >= $2::integer RETURNING id::text, username, progress`, [player.id, index])
+    WHERE id = $1 AND progress >= $2::integer RETURNING id::text, username, progress, keybindings`, [player.id, index])
   return result.rows[0] ?? null
 }
 
 // 게스트 진행도 승계 — 뒤로 가지 않게 GREATEST. 상한은 호출자가 카탈로그 길이로 건다.
 export async function inheritProgress(db: Db, player: Player, progress: number): Promise<Player> {
   const result = await db.query(`UPDATE players SET progress = GREATEST(progress, $2::integer)
-    WHERE id = $1 RETURNING id::text, username, progress`, [player.id, progress])
+    WHERE id = $1 RETURNING id::text, username, progress, keybindings`, [player.id, progress])
+  return result.rows[0] ?? player
+}
+
+// 조작키 저장 — 계정마다 하나의 JSON. 값 검증은 호출부(keybindingsJson)에서 끝낸다.
+export async function saveKeybindings(db: Db, player: Player, json: string): Promise<Player> {
+  const result = await db.query('UPDATE players SET keybindings = $2::jsonb WHERE id = $1 RETURNING id::text, username, progress, keybindings', [player.id, json])
   return result.rows[0] ?? player
 }
 
@@ -102,7 +108,7 @@ export async function verifyPlayerPassword(db: Db, player: Player, password: str
 }
 
 export async function resetProgress(db: Db, player: Player): Promise<Player> {
-  const result = await db.query('UPDATE players SET progress = 0 WHERE id = $1 RETURNING id::text, username, progress', [player.id])
+  const result = await db.query('UPDATE players SET progress = 0 WHERE id = $1 RETURNING id::text, username, progress, keybindings', [player.id])
   return result.rows[0] ?? player
 }
 

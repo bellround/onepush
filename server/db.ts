@@ -51,6 +51,8 @@ export const SCHEMA = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS username_key TEXT
     GENERATED ALWAYS AS (lower(normalize(username, NFC))) STORED;
   CREATE UNIQUE INDEX IF NOT EXISTS players_username_key_unique ON players (username_key);
+  -- 조작키는 계정마다 하나의 JSON 객체로 둔다 — 액션이 늘어도 스키마를 바꾸지 않는다.
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS keybindings JSONB;
 `
 
 export async function openDb(connectionString = process.env.DATABASE_URL): Promise<Pool> {
@@ -104,6 +106,22 @@ function actionsJson(v: unknown): string {
     int(t)
   }
   return JSON.stringify(v)
+}
+
+// 조작키 — 액션 이름과 e.code 값만 받는다. 알 수 없는 키가 섞이면 통째로 거부한다.
+export const GAME_ACTIONS = ['up', 'down', 'left', 'right', 'select', 'undo', 'reset', 'exit'] as const
+
+export function keybindingsJson(v: unknown): string {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) throw new Error('bad keybindings')
+  const entries = Object.entries(v as Record<string, unknown>)
+  if (entries.length === 0 || entries.length > GAME_ACTIONS.length) throw new Error('bad keybindings')
+  const bindings: Record<string, string> = {}
+  for (const [action, code] of entries) {
+    if (!(GAME_ACTIONS as readonly string[]).includes(action)) throw new Error(`bad keybinding action: ${action}`)
+    if (typeof code !== 'string' || !/^[A-Za-z][A-Za-z0-9]{0,31}$/.test(code)) throw new Error(`bad keybinding code: ${String(code)}`)
+    bindings[action] = code
+  }
+  return JSON.stringify(bindings)
 }
 
 export function roundValues(body: unknown): unknown[] {

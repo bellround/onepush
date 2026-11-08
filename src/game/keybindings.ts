@@ -40,6 +40,15 @@ export function saveKeybindings(bindings: Record<GameAction, string>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(bindings))
 }
 
+// 계정에 저장된 조작키를 이 브라우저에 반영한다. 서버 값이 없거나 형식이 깨졌으면 지금 설정을 유지한다.
+export function adoptKeybindings(value: unknown): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([action, code]) => action in DEFAULT_KEYBINDINGS && typeof code === 'string' && code.length > 0)
+  if (!entries.length) return
+  saveKeybindings({ ...DEFAULT_KEYBINDINGS, ...Object.fromEntries(entries) as Record<GameAction, string> })
+}
+
 // e.code 값을 화면에 보여줄 짧은 이름으로 변환.
 export function keyLabel(code: string): string {
   if (code.startsWith('Key')) return code.slice(3)

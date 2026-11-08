@@ -4,11 +4,11 @@ import { extname, join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Pool } from 'pg'
-import { exportDb, listRounds, openDb, pagination, roundIdentity, roundValues, saveRound } from './db.ts'
+import { exportDb, keybindingsJson, listRounds, openDb, pagination, roundIdentity, roundValues, saveRound } from './db.ts'
 import { createAuth, sameOrigin } from './auth.ts'
 import { injectConfig, normalizeBase } from './platform.ts'
 import { loadCatalog } from './catalog.ts'
-import { createPlayerLimiter, credentials, enterPlayer, getPlayer, inheritProgress, newSession, playerCookie, resetProgress, revokeSession, saveProgress, usernameKey, verifyPlayerPassword } from './player.ts'
+import { createPlayerLimiter, credentials, enterPlayer, getPlayer, inheritProgress, newSession, playerCookie, resetProgress, revokeSession, saveKeybindings, saveProgress, usernameKey, verifyPlayerPassword } from './player.ts'
 
 const DIST = resolve(import.meta.dirname, '../dist')
 const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' }
@@ -24,6 +24,11 @@ async function readBody(req: IncomingMessage, max = 2_000_000): Promise<unknown>
   }
   if (tooLarge) throw new RangeError('body too large')
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+}
+
+// 계정 응답 — 진행도와 함께 계정에 저장된 조작키를 돌려준다(없으면 null).
+function accountBody(player: { username: string; progress: number; keybindings?: Record<string, string> | null }) {
+  return { username: player.username, progress: player.progress, keybindings: player.keybindings ?? null }
 }
 
 function json(res: ServerResponse, status: number, value: unknown) {
@@ -70,7 +75,7 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
                 await revokeSession(db, req)
                 const token = await newSession(db, player)
                 res.setHeader('Set-Cookie', playerCookie(token, base, secure))
-                return json(res, 200, { username: player.username, progress: player.progress })
+                return json(res, 200, accountBody(player))
               } finally { limiter.release() }
             }
             if (path === '/api/account/logout' && req.method === 'POST') {
@@ -80,7 +85,7 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
             }
             if (path === '/api/account' && req.method === 'GET') {
               const player = await getPlayer(db, req)
-              return player ? json(res, 200, { username: player.username, progress: player.progress }) : json(res, 401, { error: '로그인이 필요합니다.' })
+              return player ? json(res, 200, accountBody(player)) : json(res, 401, { error: '로그인이 필요합니다.' })
             }
             if (path === '/api/account/reset' && req.method === 'POST') {
               const player = await getPlayer(db, req)
@@ -94,8 +99,15 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
                 // 공유 PC에서 남이 눌러버리는 것을 막는 유일한 장치 — 비밀번호 재확인은 생략할 수 없다.
                 if (!await verifyPlayerPassword(db, player, password)) return json(res, 401, { error: '비밀번호가 올바르지 않습니다.' })
                 const reset = await resetProgress(db, player)
-                return json(res, 200, { username: reset.username, progress: reset.progress })
+                return json(res, 200, accountBody(reset))
               } finally { limiter.release() }
+            }
+            if (path === '/api/account/keybindings' && req.method === 'POST') {
+              const player = await getPlayer(db, req)
+              if (!player) return json(res, 401, { error: '다시 로그인해 주세요.' })
+              let bindings
+              try { bindings = keybindingsJson((await readBody(req, 4096) as { keybindings?: unknown } | null)?.keybindings) } catch { return json(res, 400, { error: '조작키 설정이 올바르지 않습니다.' }) }
+              return json(res, 200, accountBody(await saveKeybindings(db, player, bindings)))
             }
             if (path === '/api/account/progress' && req.method === 'POST') {
               const player = await getPlayer(db, req)
@@ -110,7 +122,7 @@ export function createApp(db: Pick<Pool, 'query'>, options: { basePath?: string;
               if (index < 0) return json(res, 400, { error: '올바르지 않은 스테이지입니다.' })
               const saved = await saveProgress(db, player, index)
               if (!saved) return json(res, 409, { error: '아직 열리지 않은 스테이지입니다.' })
-              return json(res, 200, { username: saved.username, progress: saved.progress })
+              return json(res, 200, accountBody(saved))
             }
           } catch { return json(res, 503, { error: '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.' }) }
           return json(res, 404, { error: '요청을 찾을 수 없습니다.' })

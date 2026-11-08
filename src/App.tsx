@@ -3,8 +3,9 @@ import Board from './components/Board.tsx'
 import LevelSelect from './components/LevelSelect.tsx'
 import Settings from './components/Settings.tsx'
 import MoleculeDex from './components/MoleculeDex.tsx'
-import { AccountError, enterAccount, getAccount, logoutAccount, resetAccountProgress, saveAccountProgress, type PlayerAccount } from './game/account.ts'
+import { AccountError, enterAccount, getAccount, logoutAccount, resetAccountProgress, saveAccountKeybindings, saveAccountProgress, type PlayerAccount } from './game/account.ts'
 import { advanceProgress, loadProgress, resetProgress } from './game/progress.ts'
+import { adoptKeybindings } from './game/keybindings.ts'
 import { confirmRoundAccount, startRoundDelivery, suspendRoundAccount } from './game/telemetry.ts'
 import { LEVELS } from './levels/index.ts'
 import './App.css'
@@ -50,6 +51,7 @@ function App() {
       const result = await getAccount()
       if (request !== generation.current) return
       setAccount(result)
+      adoptKeybindings(result?.keybindings)
       confirmRoundAccount(result?.username ?? null)
       setRestored(true)
     } catch (error) {
@@ -65,6 +67,7 @@ function App() {
     getAccount().then(result => {
       if (!active || request !== generation.current) return
       setAccount(result)
+      adoptKeybindings(result?.keybindings)
       confirmRoundAccount(result?.username ?? null)
       setRestored(true)
     }).catch(error => {
@@ -106,6 +109,7 @@ function App() {
       const result = await enterAccount(username.trim(), password, local > 0 ? local : undefined)
       if (request !== generation.current) return
       setAccount(result)
+      adoptKeybindings(result.keybindings)
       confirmRoundAccount(result.username)
       setRestored(true)
       // 승계가 끝났으므로 로컬 기록은 지운다 — 공용 PC에서 다음 게스트가 물려받지 않게.
@@ -192,6 +196,12 @@ function App() {
     setGuestProgress(advanceProgress(index))
   }, [])
 
+  // 조작키를 계정에 저장한다. 실패해도 이 브라우저 설정은 이미 바뀌어 있으므로 플레이를 막지 않는다.
+  const pushKeybindings = useCallback((bindings: Record<string, string>) => {
+    if (!account) return
+    void saveAccountKeybindings(bindings).catch(() => {})
+  }, [account])
+
   // 설정 > 데이터의 진행 상황 초기화 — 로그인 상태에서는 비밀번호를 다시 확인한다.
   const resetData = useCallback(async (password: string) => {
     if (!account) {
@@ -274,6 +284,7 @@ function App() {
         onBack={() => { if (!authBusy.current) setScreen('start') }}
         resetMode={account ? 'account' : guest ? 'guest' : null}
         onReset={resetData}
+        onBindingsChange={account ? pushKeybindings : undefined}
       />
     )
   }
