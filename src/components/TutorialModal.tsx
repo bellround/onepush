@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadKeybindings } from '../game/keybindings.ts'
 import { completeTutorial, tutorialStepDelta, tutorialSteps } from '../game/tutorialModal.ts'
+import { useIsMobile } from '../useIsMobile.ts'
 import './TutorialModal.css'
 
 export default function TutorialModal({ open, onOpenChange, username }: { open: boolean; onOpenChange: (open: boolean) => void; username: string }) {
@@ -9,7 +10,8 @@ export default function TutorialModal({ open, onOpenChange, username }: { open: 
   const dialog = useRef<HTMLDialogElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const spotlight = useRef<HTMLDivElement>(null)
-  const steps = tutorialSteps(bindings)
+  const mobile = useIsMobile()
+  const steps = tutorialSteps(bindings, mobile)
   const current = steps[step]
   const lastStep = steps.length - 1
 

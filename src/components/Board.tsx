@@ -191,12 +191,19 @@ export default function Board({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [bindings, cleared, blocked, perform])
 
-  // 보드 드래그 — 한 제스처에 한 칸.
+  // 화면 어디서든 드래그 — 한 제스처에 한 칸. 판 바깥 빈 곳에서 그어도 움직인다.
   const touchStart = useRef<{ x: number; y: number } | null>(null)
   const onTouchStart = (event: React.TouchEvent) => {
-    touchStart.current = event.touches.length === 1
-      ? { x: event.touches[0].clientX, y: event.touches[0].clientY }
-      : null
+    // 버튼과 클리어 팝업 위는 제외 — 거기선 누르는 게 목적이다.
+    if (
+      event.touches.length !== 1 ||
+      !(event.target instanceof Element) ||
+      event.target.closest('button, .clear-popup')
+    ) {
+      touchStart.current = null
+      return
+    }
+    touchStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }
   }
   const onTouchEnd = (event: React.TouchEvent) => {
     const start = touchStart.current
@@ -210,7 +217,16 @@ export default function Board({
   }
 
   const cellSize = Math.floor(view / Math.max(board.cols, board.rows))
-  const atomSize = Math.round((cellSize - GRID_LINE) * 0.8)
+  const inner = cellSize - GRID_LINE
+  // 셀이 작을수록 원이 셀을 더 많이 차지하게 — 데스크톱(inner 91)에서는 0.8 비율 그대로 73px.
+  const atomSize = Math.min(inner - 2, Math.max(40, Math.round(inner * 0.8)))
+  // 테두리·점선 간격이 고정 px이면 작은 원에서 원을 잡아먹는다. 아래 계수는 원자 73px에서 현행과 같은 값.
+  // (점선 두께는 CSS에서 viewBox 단위로 둬서 저절로 비례한다)
+  const atomStroke = Math.max(1.2, atomSize * 0.0384)
+  const ringInset = Math.max(1.2, atomSize * 0.0411)
+  // :root의 line-height(145%)는 18px 기준 26.1px 길이로 상속된다 — 작은 원에서는 글자 상자가
+  // 원보다 커진다. 지름에 비례시키면 원자 73px에서 지금과 같은 26.1px가 나온다.
+  const labelLine = atomSize * 0.3575
   const width = board.cols * cellSize
   const height = board.rows * cellSize
   const hasNextLevel = levelIndex + 1 < LEVELS.length
@@ -225,7 +241,7 @@ export default function Board({
   }
 
   return (
-    <section className="board-screen">
+    <section className="board-screen" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <p className="board-header">
         레벨: <strong>{name}</strong>
       </p>
@@ -247,6 +263,7 @@ export default function Board({
         <button
           type="button"
           className="board-icon-btn board-undo-btn"
+          data-tutorial="recovery-touch"
           aria-label={ACTION_LABELS.undo}
           disabled={history.length === 0}
           onClick={() => perform('undo')}
@@ -260,8 +277,6 @@ export default function Board({
         <div
           className="board-grid"
           data-tutorial="goal"
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
           style={{
             width,
             height,
@@ -346,21 +361,22 @@ export default function Board({
                 justifyContent: 'center',
                 borderRadius: '50%',
                 boxSizing: 'border-box',
-                border:
-                  tile.id === board.controlledId ? '2.8px solid var(--transparent)' : '2.8px solid var(--atom-border)',
+                border: `${atomStroke}px solid ${
+                  tile.id === board.controlledId ? 'var(--transparent)' : 'var(--atom-border)'
+                }`,
                 background: `var(--el-${tile.symbol.toLowerCase()}, var(--atom-fallback))`,
                 backgroundClip: 'padding-box', // 검은 C에서도 조종 점선이 묻히지 않게
                 color: ['O', 'N', 'C'].includes(tile.symbol) ? 'var(--text-on-color)' : undefined,
               }}
             >
               {tile.id === board.controlledId && (
-                <svg className="atom-ring" viewBox="0 0 100 100" aria-hidden="true">
-                  {/* pathLength=100 덕분에 dasharray를 둘레의 % 로 쓸 수 있다 — 4토막 점선 */}
-                  <circle cx="50" cy="50" r="48.5" pathLength={100} strokeDasharray="3.5 2.2" />
+                <svg className="atom-ring" viewBox="0 0 100 100" aria-hidden="true" style={{ inset: -ringInset }}>
+                  {/* pathLength=100 덕분에 dasharray를 둘레의 % 로 쓸 수 있다 — 어느 크기든 토막 수가 같다 */}
+                  <circle cx="50" cy="50" r="47.9" pathLength={100} strokeDasharray="3.5 2.2" />
                 </svg>
               )}
-              <strong style={{ fontSize: Math.round(atomSize * 0.23) }}>{tile.symbol}</strong>
-              <small style={{ fontSize: Math.round(atomSize * 0.135) }}>{tile.remaining}</small>
+              <strong style={{ fontSize: Math.max(11, Math.round(atomSize * 0.23)), lineHeight: `${labelLine}px` }}>{tile.symbol}</strong>
+              <small style={{ fontSize: Math.max(8, Math.round(atomSize * 0.135)), lineHeight: `${labelLine}px` }}>{tile.remaining}</small>
             </div>
           ))}
         </div>

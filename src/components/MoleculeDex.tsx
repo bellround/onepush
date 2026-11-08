@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { loadKeybindings } from '../game/keybindings.ts'
 import { LEVELS } from '../levels/index.ts'
+import { useIsMobile } from '../useIsMobile.ts'
 
 const PAGE_SIZE = 4
 
@@ -10,8 +11,12 @@ const ENTRIES = LEVELS.map((level, index) => ({ level, index })).filter(
 )
 
 export default function MoleculeDex({ progress, onBack }: { progress: number; onBack: () => void }) {
-  const totalPages = Math.ceil(ENTRIES.length / PAGE_SIZE)
+  // 모바일은 카드 한 장이 화면 폭을 다 써야 읽힌다 — 한 페이지에 1장.
+  const pageSize = useIsMobile() ? 1 : PAGE_SIZE
+  const totalPages = Math.ceil(ENTRIES.length / pageSize)
   const [page, setPage] = useState(0)
+  // 회전 등으로 pageSize가 바뀌면 page가 범위를 벗어날 수 있다.
+  const safePage = Math.min(page, totalPages - 1)
 
   useEffect(() => {
     const bindings = loadKeybindings()
@@ -31,14 +36,14 @@ export default function MoleculeDex({ progress, onBack }: { progress: number; on
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onBack, totalPages])
 
-  const pageEntries = ENTRIES.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const pageEntries = ENTRIES.slice(safePage * pageSize, safePage * pageSize + pageSize)
 
   return (
     <section className="settings">
       <h1>분자 도감</h1>
       <p className="menu-tagline">지금까지 완성한 분자입니다.</p>
       <div className="dex-pager">
-        <button type="button" className="btn" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
+        <button type="button" className="btn dex-prev" onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0}>
           ◀
         </button>
         <div className="dex-grid">
@@ -55,9 +60,9 @@ export default function MoleculeDex({ progress, onBack }: { progress: number; on
         </div>
         <button
           type="button"
-          className="btn"
-          onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-          disabled={page >= totalPages - 1}
+          className="btn dex-next"
+          onClick={() => setPage(Math.min(totalPages - 1, safePage + 1))}
+          disabled={safePage >= totalPages - 1}
         >
           ▶
         </button>

@@ -313,6 +313,10 @@
   max-width: 640px;
 }
 
+.board-screen {
+  overscroll-behavior: contain; /* iOS 바운스에 드래그를 뺏기지 않게 */
+}
+
 .dex-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -452,16 +456,18 @@
 }
 
 /* 조종 중인 원소 — 점선 테두리가 천천히 돌아간다 (안쪽 글자는 그대로). */
+/* inset은 원자 지름에 맞춰 Board.tsx가 인라인으로 준다 — 작은 원에서 점선이 떨어져 보이지 않게. */
 .atom-ring {
   position: absolute;
-  inset: -3px;
   animation: atom-spin 30s linear infinite;
 }
+/* stroke-width는 viewBox(100) 단위. non-scaling-stroke를 쓰면 dasharray까지 기기 좌표로 끌려가
+   원이 작을수록 토막이 몇 개 안 남는다. 비례로 두면 어느 크기든 두께·토막 수가 같다
+   (원자 73px → 3.0px, 40px → 1.6px — svg 상자는 테두리 안쪽 기준이라 4.05가 73px에서 3.0px가 된다). */
 .atom-ring circle {
   fill: none;
   stroke: var(--atom-ring);
-  stroke-width: 3;
-  vector-effect: non-scaling-stroke;
+  stroke-width: 4.05;
 }
 @keyframes atom-spin {
   to {
@@ -599,5 +605,29 @@
   .board-header {
     position: static;
     font-size: 20px;
+  }
+
+  /* 도감: 카드 한 장이 폭을 다 쓰고, ◀ ▶ 는 아래로 내린다.
+     마크업 순서(버튼-그리드-버튼)를 안 바꿔도 되게 grid 영역으로 자리를 잡는다. */
+  .dex-pager {
+    display: grid;
+    grid-template-areas:
+      'cards cards'
+      'prev next';
+    gap: 16px;
+  }
+  .dex-grid {
+    grid-area: cards;
+    grid-template-columns: 1fr;
+  }
+  .dex-prev {
+    grid-area: prev;
+  }
+  .dex-next {
+    grid-area: next;
+  }
+  .dex-card {
+    height: auto;
+    min-height: 180px;
   }
 }
