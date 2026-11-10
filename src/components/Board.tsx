@@ -9,6 +9,7 @@ import { MenuIcon, ResetIcon, UndoIcon } from './icons.tsx'
 import TutorialModal from './TutorialModal.tsx'
 import { shouldStartTutorial } from '../game/tutorialModal.ts'
 import { LEVELS, loadLevel } from '../levels/index.ts'
+import { MOBILE_QUERY } from '../useIsMobile.ts'
 import type { Board as BoardState } from '../game/types.ts'
 
 // 클리어 팝업에서 어디로 나가는가 — 'next'는 다음 레벨을 바로 시작한다.
@@ -21,6 +22,13 @@ const BOARD_VIEW_MAX = 678
 const BOND_GAP = 8
 // 격자선 두께(px) — 셀 안쪽은 이 선 다음부터 시작한다.
 const GRID_LINE = 5
+// 판 말고 세로로 비워 둘 자리(px). 데스크톱: 판이 세로 가운데라 위(키 안내)·아래(레벨 이름) 80씩.
+// 모바일: .board-screen padding(76+110) + 맨 위 레벨 이름 줄과 gap.
+const HEIGHT_RESERVE = 160
+const HEIGHT_RESERVE_MOBILE = 240
+// 가로폰: App.css가 같은 조건에서 padding을 16으로 줄인다 — 여백 32 + 레벨 이름 줄과 gap.
+const LANDSCAPE_QUERY = '(pointer: coarse) and (orientation: landscape) and (max-height: 500px)'
+const HEIGHT_RESERVE_LANDSCAPE = 100
 
 function levelState(index: number) {
   return { levelIndex: index, history: [] as BoardState[], ...loadLevel(LEVELS[index]) }
@@ -65,11 +73,24 @@ export default function Board({
     const element = viewportRef.current
     if (!element) return
     // .board-viewport는 폭이 100%라 view에 영향을 받지 않는다 — 되먹임 없음.
-    const measure = () => setView(Math.min(BOARD_VIEW_MAX, element.clientWidth))
+    // 높이도 본다 — 폭만 보면 낮은 창에서 판이 위아래 안내 글자를 덮는다.
+    const measure = () => {
+      const reserve = window.matchMedia(LANDSCAPE_QUERY).matches
+        ? HEIGHT_RESERVE_LANDSCAPE
+        : window.matchMedia(MOBILE_QUERY).matches
+          ? HEIGHT_RESERVE_MOBILE
+          : HEIGHT_RESERVE
+      setView(Math.min(BOARD_VIEW_MAX, element.clientWidth, window.innerHeight - reserve))
+    }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(element)
-    return () => observer.disconnect()
+    // 높이만 바뀌면 칸 폭은 그대로라 ResizeObserver가 안 불린다.
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
   }, [])
 
   useLayoutEffect(() => {

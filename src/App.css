@@ -185,28 +185,12 @@
   gap: 24px;
 }
 
-.back-btn-fixed {
-  position: absolute;
-  left: 50%;
-  bottom: 100px;
-  transform: translateX(-50%);
-}
-
-.back-btn-fixed:active {
-  transform: translate(-50%, 1px);
-}
-
-.chapter-arrow {
-  position: absolute;
-  bottom: 350px;
-}
-
 .chapter-arrow--prev {
-  right: calc(50% + 190px + 12px);
+  grid-area: prev;
 }
 
 .chapter-arrow--next {
-  left: calc(50% + 190px + 12px);
+  grid-area: next;
 }
 
 .keybind-list {
@@ -264,15 +248,22 @@
   margin-top: 8px;
 }
 
+/* 챕터 이동: 제목 줄 양옆에 ◀ ▶, 아래에 목록. 화면 아래 기준 absolute로 띄우면 창 높이에 따라
+   목록과 어긋난다 — 흐름 배치로 둔다. .level-chapter에 display:contents를 줘서 제목과 목록을
+   바깥 grid에 직접 놓는다. */
 .level-chapter {
-  width: 100%;
-  max-width: 380px;
+  display: contents;
 }
 
 .chapter-nav {
-  display: flex;
+  display: grid;
+  grid-template-areas:
+    'prev title next'
+    'list list list';
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 12px;
+  width: 100%;
+  max-width: 420px;
 }
 
 .chapter-nav .btn[disabled] {
@@ -284,12 +275,14 @@
 }
 
 .level-chapter-title {
+  grid-area: title;
   font: 600 44px/1 var(--mono);
   color: var(--text-h);
   margin: 0 0 28px;
 }
 
 .level-list {
+  grid-area: list;
   width: 100%;
   max-width: 380px;
   display: flex;
@@ -383,7 +376,7 @@
   left: 24px;
   bottom: 24px;
   margin: 0;
-  font-size: 32px;
+  font-size: clamp(18px, 4.5vh, 32px); /* 판이 줄어드는 낮은 창에서는 글자도 같이 줄인다 */
   white-space: nowrap;
 }
 
@@ -391,7 +384,7 @@
   position: absolute;
   left: 24px;
   top: 24px;
-  font-size: 14px;
+  font-size: clamp(11px, 2vh, 14px);
   color: var(--text);
   opacity: 0.7;
   white-space: nowrap;
@@ -451,7 +444,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
-  font-size: 19px;
+  font-size: clamp(14px, 2.7vh, 19px);
   text-align: center;
 }
 
@@ -584,7 +577,7 @@
   border-radius: 50%;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) {
   /* 키보드가 없으므로 키 안내와 조작키 설정은 지운다. */
   .board-controls-hint,
   .settings-controls-btn {
@@ -604,42 +597,15 @@
   /* 레벨 이름은 흐름대로 맨 위에 둔다. */
   .board-header {
     position: static;
-    font-size: 20px;
+    font-size: clamp(15px, 4.5vh, 20px);
   }
 
-  /* 챕터 이동: 데스크톱은 목록 바깥에 화살표를 띄우는데 좁은 화면에서는 창 밖으로 나간다.
-     제목 줄 양옆으로 세운다 — .level-chapter에 display:contents를 줘서 제목과 목록을
-     바깥 grid에 직접 놓으면 마크업을 안 건드려도 된다. */
-  .chapter-nav {
-    display: grid;
-    grid-template-areas:
-      'prev title next'
-      'list list list';
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    width: 100%;
-    max-width: 420px;
-  }
-  .level-chapter {
-    display: contents;
-  }
   .chapter-arrow {
-    position: static;
     padding: 14px 16px;
   }
-  .chapter-arrow--prev {
-    grid-area: prev;
-  }
-  .chapter-arrow--next {
-    grid-area: next;
-  }
   .level-chapter-title {
-    grid-area: title;
     font-size: 28px;
     margin: 0 0 20px;
-  }
-  .level-list {
-    grid-area: list;
   }
 
   /* 도감: 카드 한 장이 폭을 다 쓰고, ◀ ▶ 는 아래로 내린다.
@@ -664,5 +630,14 @@
   .dex-card {
     height: auto;
     min-height: 180px;
+  }
+}
+
+/* 가로폰: 버튼은 양옆 구석, 판은 가운데 — 위아래 여백을 줄여 판을 키운다.
+   Board.tsx의 LANDSCAPE_QUERY와 같은 조건. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  .board-screen {
+    padding: 16px;
+    gap: 12px;
   }
 }

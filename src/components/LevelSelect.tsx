@@ -111,7 +111,7 @@ export default function LevelSelect({
           ▶
         </button>
       </div>
-      <button type="button" className="btn back-btn-fixed" onClick={onBack}>
+      <button type="button" className="btn" onClick={onBack}>
         뒤로
       </button>
     </section>
