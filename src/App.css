@@ -262,6 +262,7 @@
     'list list list';
   grid-template-columns: auto 1fr auto;
   align-items: center;
+  row-gap: 28px; /* 제목 margin으로 띄우면 ◀ ▶가 제목보다 아래로 처진다 */
   width: 100%;
   max-width: 420px;
 }
@@ -276,15 +277,14 @@
 
 .level-chapter-title {
   grid-area: title;
-  font: 600 44px/1 var(--mono);
+  font: 600 44px/1 var(--heading);
   color: var(--text-h);
-  margin: 0 0 28px;
+  margin: 0;
 }
 
 .level-list {
   grid-area: list;
   width: 100%;
-  max-width: 380px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -562,15 +562,15 @@
 
 .board-mobile-top {
   position: fixed;
-  left: 16px;
-  top: 16px;
+  left: 32px;
+  top: 24px;
   display: flex;
   gap: 8px;
 }
 
 .board-undo-btn {
   position: fixed;
-  right: 16px;
+  right: 32px;
   bottom: 24px;
   width: 64px;
   height: 64px;
@@ -591,13 +591,13 @@
   /* 되돌리기 버튼이 판을 가리지 않게 판을 위로 올린다. */
   .board-screen {
     justify-content: flex-start;
-    padding: 76px 16px 110px;
+    padding: max(84px, 16vh) 16px 110px; /* 가운데보다 조금 위 */
   }
 
   /* 레벨 이름은 흐름대로 맨 위에 둔다. */
   .board-header {
     position: static;
-    font-size: clamp(15px, 4.5vh, 20px);
+    font-size: clamp(15px, min(6.4vw, 6vh), 24px); /* 좁은 폰에서 긴 이름이 안 넘치게 */
   }
 
   .chapter-arrow {
@@ -605,7 +605,9 @@
   }
   .level-chapter-title {
     font-size: 28px;
-    margin: 0 0 20px;
+  }
+  .chapter-nav {
+    row-gap: 20px;
   }
 
   /* 도감: 카드 한 장이 폭을 다 쓰고, ◀ ▶ 는 아래로 내린다.

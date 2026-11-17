@@ -23,9 +23,9 @@ const BOND_GAP = 8
 // 격자선 두께(px) — 셀 안쪽은 이 선 다음부터 시작한다.
 const GRID_LINE = 5
 // 판 말고 세로로 비워 둘 자리(px). 데스크톱: 판이 세로 가운데라 위(키 안내)·아래(레벨 이름) 80씩.
-// 모바일: .board-screen padding(76+110) + 맨 위 레벨 이름 줄과 gap.
+// 모바일: .board-screen padding(위 max(84px, 16vh) + 아래 110) + 맨 위 레벨 이름 줄과 gap(66).
 const HEIGHT_RESERVE = 160
-const HEIGHT_RESERVE_MOBILE = 240
+const mobileReserve = () => Math.max(84, window.innerHeight * 0.16) + 176
 // 가로폰: App.css가 같은 조건에서 padding을 16으로 줄인다 — 여백 32 + 레벨 이름 줄과 gap.
 const LANDSCAPE_QUERY = '(pointer: coarse) and (orientation: landscape) and (max-height: 500px)'
 const HEIGHT_RESERVE_LANDSCAPE = 100
@@ -78,7 +78,7 @@ export default function Board({
       const reserve = window.matchMedia(LANDSCAPE_QUERY).matches
         ? HEIGHT_RESERVE_LANDSCAPE
         : window.matchMedia(MOBILE_QUERY).matches
-          ? HEIGHT_RESERVE_MOBILE
+          ? mobileReserve()
           : HEIGHT_RESERVE
       setView(Math.min(BOARD_VIEW_MAX, element.clientWidth, window.innerHeight - reserve))
     }
@@ -348,7 +348,9 @@ export default function Board({
           </svg>
           {/* 맵에 고정된 + 표시 — 격자 모서리(격자선이 교차하는 꼭짓점)에 그린다. */}
           {board.bonders.map((bonder) => {
-            const size = Math.max(16, Math.round(cellSize * 0.2))
+            // 판이 줄면 + 표시도 같이 줄인다 — 바닥을 높게 잡으면 작은 칸에서 + 가 칸을 덮는다.
+            // 테두리는 지름에 비례 (셀 96px에서 지름 19px·테두리 2px로 현행과 같다).
+            const size = Math.max(14, Math.round(cellSize * 0.2))
             return (
               <div
                 key={`bonder-${bonder.row}-${bonder.col}`}
@@ -360,6 +362,7 @@ export default function Board({
                   width: size,
                   height: size,
                   fontSize: Math.round(size * 0.6),
+                  borderWidth: Math.max(1, size * 0.11),
                 }}
               >
                 +
